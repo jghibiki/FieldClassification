@@ -16,10 +16,13 @@ def read_and_decode(file_name_queue):
     image = tf.reshape(image, [128, 128, 4])
     image.set_shape([128, 128, 4])
     image = tf.cast(image, tf.float32)
+    #image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
+
+
 
     label = tf.decode_raw(features['label_raw'], tf.uint8)
-    label = tf.reshape(label, [64, 64])
-    label.set_shape([64, 64])
+    label = tf.reshape(label, [128, 128])
+    label.set_shape([128, 128])
     label = tf.cast(label, tf.int64)
 
 

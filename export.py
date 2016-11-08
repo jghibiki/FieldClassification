@@ -9,11 +9,11 @@ import numpy as np
 
 
 def getImage(i):
-    image = Image.open("raw_images/IMG-%s.png" % i)
+    image = Image.open("raw_images/IMG-%08d.png" % i)
     return image
 
 def getLabel(i):
-    labels = Image.open("raw_images/LBL-%s.png" % i)
+    labels = Image.open("raw_images/LBL-%08d.png" % i)
 
     return labels
 
@@ -33,6 +33,16 @@ def convert_to(image, label):
 
     image = np.asarray(image)
     label = np.asarray(label)
+
+    if(not image.shape[0] is 128 or not image.shape[1] is 128):
+        print("bad image")
+        print(image.shape)
+        exit()
+    if(not label.shape[0] is 128 or not label.shape[1] is 128):
+        print("bad label")
+        print(label.shape)
+        exit()
+
 
     image_raw = image.tostring()
     label_raw = label.tostring()
@@ -54,13 +64,13 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(5001):
+    for i in xrange(1001):
         example = getExample(i)
         writer.write(example.SerializeToString())
 
         if i % 1 is 0:
 
-            print("\rCompleted: %06d" % (i), end="")
+            print("\rCompleted: %08d" % (i), end="")
             sys.stdout.flush()
     print()
 

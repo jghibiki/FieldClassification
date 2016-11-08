@@ -53,26 +53,23 @@ class ImageClassifier:
         tf.image_summary('input', x, max_images=50)
         conv1 = self.conv1_layer(x)
         conv2 = self.conv2_layer(conv1)
-        #fc1 = self.fc1_layer(conv2)
-        #dropout = self.apply_dropout(fc1)
-        #fc2 = self.fc2_layer(dropout)
-        #return fc2
+
         deconv2 = self.deconv2_layer(conv2)
         conv2_decode = self.conv_decode2_layer(deconv2)
 
-        deconv1 = self.deconv1_layer(conv1)
+        deconv1 = self.deconv1_layer(conv2_decode)
         conv1_decode = self.conv_decode1_layer(deconv1)
 
         conv_class = self.conv_class_layer(conv1_decode)
         return conv_class
 
     def loss(self, logits, labels):
-        labels = tf.reshape(labels, [self.batch_size, 64* 64])
+        labels = tf.reshape(labels, [self.batch_size, 128*128])
 
-        loss = self.calculate_loss(logits, labels)
+        logits, labels, loss = self.calculate_loss(logits, labels)
         self.optimize_loss(loss)
-        #prediction = self.predict(logits, labels)
-        #self.calculate_accuracy(prediction)
+        prediction = self.predict(logits, labels)
+        self.calculate_accuracy(prediction)
 
     def evaluate(self, images, labels):
 
@@ -115,7 +112,9 @@ class ImageClassifier:
 
 
             h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+            print(h_conv2)
             h_pool2 = max_pool_2x2(h_conv2)
+            print(h_pool2)
 
             self.image_summary(h_conv2, 'conv2/filters')
 
@@ -124,7 +123,7 @@ class ImageClassifier:
     def deconv2_layer(self, h_pool2):
         W_deconv2 = weight_variable([2, 2, 64, 64])
 
-        h_deconv2 = tf.nn.conv2d_transpose(h_pool2, W_deconv2, [self.batch_size, 64, 64, 64], [1, 1, 1, 1])
+        h_deconv2 = tf.nn.conv2d_transpose(h_pool2, W_deconv2, [self.batch_size, 64, 64, 64], [1, 2, 2, 1])
 
         return h_deconv2
 
@@ -140,7 +139,7 @@ class ImageClassifier:
     def deconv1_layer(self, h_pool2):
         W_deconv1 = weight_variable([2, 2, 64, 64])
 
-        h_deconv1 = tf.nn.conv2d_transpose(h_pool2, W_deconv1, [self.batch_size, 64, 64, 64], [1, 1, 1, 1])
+        h_deconv1 = tf.nn.conv2d_transpose(h_pool2, W_deconv1, [self.batch_size, 128, 128, 64], [1, 2, 2, 1])
 
         return h_deconv1
 
@@ -164,30 +163,6 @@ class ImageClassifier:
         return h_conv_class
 
 
-    def fc1_layer(self, h_pool2):
-        with tf.variable_scope('fc_1') as scope_conv:
-            W_fc1 = weight_variable([200 , 16384])
-            b_fc1 = bias_variable([1024])
-
-            h_pool2_flat = tf.reshape(h_pool2, [self.batch_size, 200])
-            h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
-
-        return h_fc1
-
-    def apply_dropout(self, h_fc1):
-        with tf.variable_scope('dropout') as scope_conv:
-            self.keep_prob = tf.placeholder(tf.float32)
-            h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
-        return h_fc1_drop
-
-
-    def fc2_layer(self, h_fc1_drop):
-        with tf.variable_scope('fc_2') as scope_conv:
-            W_fc2 = weight_variable([1024, 4])
-            b_fc2 = bias_variable([4])
-            y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
-        return y_conv
-
     def calculate_loss(self, logits, labels):
         with tf.variable_scope('Loss') as scope_conv:
 
@@ -210,7 +185,7 @@ class ImageClassifier:
 
             loss = tf.add_n(tf.get_collection('losses'))
             tf.scalar_summary('loss', loss)
-        return cross_entropy
+        return logits, labels, cross_entropy
 
         #    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(y_conv, y)
         #    loss = tf.reduce_mean(cross_entropy)
@@ -243,13 +218,13 @@ class ImageClassifier:
 
 
     def train(self, sess):
-        summary, loss,  _ = sess.run([self.merged, self.calculated_loss,  self.train_step],
+        summary, accuracy, loss,  _ = sess.run([self.merged, self.accuracy, self.calculated_loss,  self.train_step],
                 feed_dict={
                 #self.keep_prob: self.dropout_rate
             },
             options=self.run_options,
             run_metadata=self.run_metadata)
-        return .0, summary, self.run_metadata, loss
+        return accuracy, loss, summary, self.run_metadata
 
     def evaluate_once(self, sess):
         predictions = sess.run([self.top_k_op],

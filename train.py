@@ -6,7 +6,7 @@ from datetime import datetime
 import inputs
 
 sess = tf.InteractiveSession()
-batch_size = 50
+batch_size = 5
 x, y = inputs.input_pipeline("data/train.tfrecord", batch_size, num_epochs=5)
 classifier_model = ImageClassifier(x, y, batch_size=batch_size)
 
@@ -27,7 +27,7 @@ with sess.as_default():
         start = datetime.now()
         while not coord.should_stop():
 
-            accuracy, summary, run_metadata, loss = classifier_model.train(sess)
+            accuracy, loss, summary, run_metadata = classifier_model.train(sess)
 
             if step % 1 is 0:
                 train_writer.add_run_metadata(run_metadata, 'step%d' % step)
@@ -36,7 +36,7 @@ with sess.as_default():
                 now = datetime.now()
                 elapsed = now - start
                 average = elapsed / step if not step is 0 else 0
-                print("Step %d, Training Accuracy %g, Average Time %s/step, Elapsed Time %s" % (step, loss, average, elapsed))
+                print("Step %d, Accuracy %.6f, Loss %.6f, Average Time %s/step, Elapsed Time %s" % (step, accuracy*100, loss, average, elapsed))
                 sys.stdout.flush()
 
             if step % 1 is 0:
