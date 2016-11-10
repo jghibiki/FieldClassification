@@ -9,7 +9,18 @@ import numpy as np
 
 
 def getImage(i):
-    image = Image.open("raw_images/IMG-%08d.png" % i)
+    image_r = Image.open("raw_images/IMG-R-%08d.png" % i)
+    image_g = Image.open("raw_images/IMG-G-%08d.png" % i)
+    image_b = Image.open("raw_images/IMG-B-%08d.png" % i)
+    image_a = Image.open("raw_images/IMG-A-%08d.png" % i)
+    image = np.array([
+        np.array(image_r)[..., np.newaxis],
+        np.array(image_g)[..., np.newaxis],
+        np.array(image_b)[..., np.newaxis],
+        np.array(image_a)[..., np.newaxis]
+    ])
+    image = np.concatenate(image, axis=-1)
+    print(image.shape)
     return image
 
 def getLabel(i):
@@ -64,7 +75,7 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(1001):
+    for i in xrange(3081):
         example = getExample(i)
         writer.write(example.SerializeToString())
 

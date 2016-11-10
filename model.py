@@ -138,7 +138,7 @@ class ImageClassifier:
             variable_summaries(b_conv_decode2, "b_conv_decode2")
 
             h_conv_decode2 = tf.nn.conv2d(h_deconv1, W_conv_decode2, [1, 1, 1, 1], padding="SAME") + b_conv_decode2
-            self.image_summary(h_decode2, 'conv_decode2/filters')
+            self.image_summary(h_conv_decode2, 'conv_decode2/filters')
 
             return h_conv_decode2
 
@@ -162,7 +162,7 @@ class ImageClassifier:
             variable_summaries(b_conv_decode1, "b_conv_decode1")
 
             h_conv_decode1 = tf.nn.conv2d(h_deconv2, W_conv_decode1, [1, 1, 1, 1], padding="SAME") + b_conv_decode1
-            self.image_summary(h_decode1, 'conv_decode1/filters')
+            self.image_summary(h_conv_decode1, 'conv_decode1/filters')
 
             return h_conv_decode1
 
