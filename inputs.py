@@ -30,7 +30,7 @@ def read_and_decode(file_name_queue):
 
 
 
-def input_pipeline(file_name, batch_size, num_epochs=None):
+def train_pipeline(file_name, batch_size, num_epochs=None):
     file_name_queue = tf.train.string_input_producer([file_name],
             num_epochs=num_epochs,
             shuffle=True)
@@ -47,7 +47,6 @@ def input_pipeline(file_name, batch_size, num_epochs=None):
             min_after_dequeue=min_after_dequeue)
 
     return examples, labels
-
 
 
 

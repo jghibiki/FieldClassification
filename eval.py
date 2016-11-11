@@ -6,7 +6,7 @@ from model import ImageClassifier
 from datetime import datetime
 import sat4
 
-x, y = sat4.input_pipeline("data/test.tfrecord", 50, num_epochs=1)
+x, y = sat4.input_pipeline("data/test.tfrecord", 1, num_epochs=1)
 classifier_model = ImageClassifier(x, y, eval=True, checkpoint_file="output/model.ckpt-7000" )
 
 sess = tf.Session()
