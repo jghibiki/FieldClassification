@@ -6,7 +6,7 @@ from datetime import datetime
 import inputs
 
 sess = tf.InteractiveSession()
-batch_size = 5
+batch_size = 25
 x, y = inputs.input_pipeline("data/train.tfrecord", batch_size, num_epochs=5)
 classifier_model = ImageClassifier(x, y, batch_size=batch_size)
 

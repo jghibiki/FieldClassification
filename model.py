@@ -53,13 +53,17 @@ class ImageClassifier:
         tf.image_summary('input', x, max_images=50)
         conv1 = self.conv1_layer(x)
         conv2 = self.conv2_layer(conv1)
+        conv3 = self.conv3_layer(conv2)
+        conv4 = self.conv4_layer(conv3)
+        conv5 = self.conv5_layer(conv4)
+        conv_class = self.conv_class_layer(conv5)
 
         # some sort of FC layers
 
-        return None
+        return conv_class
 
     def loss(self, logits, labels):
-        labels = tf.reshape(labels, [self.batch_size, 128*128])
+        labels = tf.reshape(labels, [self.batch_size, 4*4])
 
         logits, labels, loss = self.calculate_loss(logits, labels)
         self.optimize_loss(loss)
@@ -107,14 +111,76 @@ class ImageClassifier:
 
 
             h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-            print(h_conv2)
             h_pool2 = max_pool_2x2(h_conv2)
-            print(h_pool2)
 
             self.image_summary(h_conv2, 'conv2/filters')
 
             return h_pool2
 
+    def conv3_layer(self, h_pool):
+        with tf.variable_scope('conv3') as scope_conv:
+            W_conv = weight_variable([5, 5, 64, 32])
+            variable_summaries(W_conv, "W_conv3")
+            b_conv = bias_variable([32])
+            variable_summaries(b_conv, "b_conv3")
+
+
+            h_conv = tf.nn.relu(conv2d(h_pool, W_conv) + b_conv)
+            print(h_conv)
+            h_pool = max_pool_2x2(h_conv)
+            print(h_pool)
+
+            self.image_summary(h_conv, 'conv3/filters')
+
+            return h_pool
+
+    def conv4_layer(self, h_pool):
+        with tf.variable_scope('conv4') as scope_conv:
+            W_conv = weight_variable([5, 5, 32, 16])
+            variable_summaries(W_conv, "W_conv4")
+            b_conv = bias_variable([16])
+            variable_summaries(b_conv, "b_conv4")
+
+
+            h_conv = tf.nn.relu(conv2d(h_pool, W_conv) + b_conv)
+            print(h_conv)
+            h_pool = max_pool_2x2(h_conv)
+            print(h_pool)
+
+            self.image_summary(h_conv, 'conv4/filters')
+
+            return h_pool
+
+    def conv5_layer(self, h_pool):
+        with tf.variable_scope('conv5') as scope_conv:
+            W_conv = weight_variable([5, 5, 16, 8])
+            variable_summaries(W_conv, "W_conv5")
+            b_conv = bias_variable([8])
+            variable_summaries(b_conv, "b_conv5")
+
+
+            h_conv = tf.nn.relu(conv2d(h_pool, W_conv) + b_conv)
+            print(h_conv)
+            h_pool = max_pool_2x2(h_conv)
+            print(h_pool)
+
+            self.image_summary(h_conv, 'conv5/filters')
+
+            return h_pool
+
+
+    def conv_class_layer(self, h_conv_decode1):
+        with tf.variable_scope('conv_classification') as scope_conv:
+            W_conv_class = weight_variable([1, 1, 8, 255])
+            variable_summaries(W_conv_class, "W_conv_classification")
+            b_conv_class = bias_variable([255])
+            variable_summaries(b_conv_class, "b_conv_classification")
+
+            h_conv_class = tf.nn.conv2d(h_conv_decode1, W_conv_class, [1, 1, 1, 1], padding="SAME") + b_conv_class
+            print(h_conv_class)
+            self.image_summary(h_conv_class, 'conv_class_layer/filters')
+
+        return h_conv_class
 
 
 
@@ -131,6 +197,8 @@ class ImageClassifier:
 
             softmax = tf.nn.softmax(logits)
 
+            print(logits.get_shape())
+            print(labels.get_shape())
             cross_entropy = - tf.reduce_sum((labels * tf.log(softmax + epsilon)), reduction_indices=[1])
 
             cross_entropy_mean = tf.reduce_mean(cross_entropy)

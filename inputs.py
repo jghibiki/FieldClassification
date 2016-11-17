@@ -21,8 +21,8 @@ def read_and_decode(file_name_queue):
 
 
     label = tf.decode_raw(features['label_raw'], tf.uint8)
-    label = tf.reshape(label, [128, 128])
-    label.set_shape([128, 128])
+    label = tf.reshape(label, [4, 4])
+    label.set_shape([4, 4])
     label = tf.cast(label, tf.int64)
 
 

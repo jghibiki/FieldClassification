@@ -37,13 +37,15 @@ label_w, label_h = len(im2), len(im2[0])
 
 
 out_w, out_h = 128, 128
+out_label_w, out_label_h = 4,4
+
 print("Output image size: %sx%s" % (out_h, out_w))
 print("Input image size: %sx%s" % (source_h, source_w))
 print("Label image size: %sx%s" % (label_h, label_w))
 
 k = 0
-for i in xrange(0, source_w, out_w):
-    for j in xrange(0, source_h, out_h):
+for i in xrange(0, source_w, out_label_w):
+    for j in xrange(0, source_h, out_label_h):
 
         #if k % 0 is 0:
         print("Exported %008d x1:%s y1:%s x2:%s, y2:%s\r" % (k, i, j, i+out_w, j+out_h), end="")
@@ -70,7 +72,16 @@ for i in xrange(0, source_w, out_w):
             a.load()
             a.save("raw_images/IMG-A-%008d.png" % k)
 
-            label_img = label.crop((i, j, i+(out_h), j+(out_w)))
+            center_x = i + (out_w/2)
+            center_y = j + (out_h/2)
+            label_x1 = center_x - (out_label_w/2)
+            label_y1 = center_y - (out_label_h/2)
+            label_x2 = center_x + (out_label_w/2)
+            label_y2 = center_y + (out_label_h/2)
+#            print()
+#            print((center_x, center_y), (label_x1, label_y1), (label_x2, label_y2))
+#            print()
+            label_img = label.crop((label_x1, label_y1, label_x2, label_y2))
             label_img.load()
             label_img.save("raw_images/LBL-%008d.png" % k)
 

@@ -49,7 +49,7 @@ def convert_to(image, label):
         print("bad image")
         print(image.shape)
         exit()
-    if(not label.shape[0] is 128 or not label.shape[1] is 128):
+    if(not label.shape[0] is 4 or not label.shape[1] is 4):
         print("bad label")
         print(label.shape)
         exit()
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(3081):
+    for i in xrange(150001):
         example = getExample(i)
         writer.write(example.SerializeToString())
 
