@@ -20,7 +20,6 @@ def getImage(i):
         np.array(image_a)[..., np.newaxis]
     ])
     image = np.concatenate(image, axis=-1)
-    print(image.shape)
     return image
 
 def getLabel(i):
@@ -75,7 +74,7 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(3081):
+    for i in xrange(8963):
         example = getExample(i)
         writer.write(example.SerializeToString())
 
