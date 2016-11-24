@@ -1,8 +1,30 @@
 import tensorflow as tf
+import math
 
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=0.1)
+def weight_variable(shape, initializer=None):
+    if not initializer:
+        initial = tf.truncated_normal(shape, stddev=0.1)
+    else:
+        stddev = math.sqrt(2. / (kl**2 * dl))
+        initial = tf.truncated_normal_initializer(stddev=stddev)
+
+        initial = tf.truncated_normal_initializer(shape, stddev=0.1)
+
     return tf.Variable(initial)
+
+def weight_variavle_with_weight_decay(name, shape, initializer, wd):
+    var = tf.get_variable(name, shape, initializer=initializer)
+
+    if wd is not None:
+        weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
+    return var
+
+def msra_initializer(kl, dl):
+    """
+    kl for kernel size, dl for filter number
+    """
+    stddev = math.sqrt(2. / (kl**2 * dl))
+    return tf.truncated_normal_initializer(stddev=stddev)
 
 def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
@@ -78,6 +100,7 @@ class ImageClassifier:
         self.optimize_loss(loss)
         prediction = self.predict(logits, labels)
         self.calculate_accuracy(prediction)
+
 
     def evaluate(self, images, labels):
 
@@ -226,15 +249,17 @@ class ImageClassifier:
 
     def conv_class_layer(self, h_conv_decode1):
         with tf.variable_scope('conv_classification') as scope_conv:
-            W_conv_class = weight_variable([1, 1, 64, 255])
+
+            W_conv_class = weight_variavle_with_weight_decay(
+                "W_conv_class",
+                [1, 1, 64, 255],
+                msra_initializer(1, 64),
+                0.0005)
             variable_summaries(W_conv_class, "W_conv_classification")
             b_conv_class = bias_variable([255])
             variable_summaries(b_conv_class, "b_conv_classification")
-
             h_conv_class = tf.nn.conv2d(h_conv_decode1, W_conv_class, [1, 1, 1, 1], padding="SAME") + b_conv_class
             self.image_summary(h_conv_class, 'conv_class_layer/filters')
-            #h_pool_class = max_pool_2x2(h_conv_class)
-            #h_pool_class = tf.reshape(h_pool_class, [self.batch_size, 64* 64, 255])
 
         return h_conv_class
 
@@ -243,24 +268,33 @@ class ImageClassifier:
         with tf.variable_scope('Loss') as scope_conv:
 
             logits = tf.reshape(logits, [-1, 255])
-            epsilon = tf.constant(value=1e-10)
-            logits  = logits + epsilon
+            labels = tf.reshape(labels, [-1])
 
-            labels_flat = tf.reshape(labels, (-1, 1))
-
-            labels = tf.reshape(tf.one_hot(labels_flat, depth=255), [-1, 255])
-
-            softmax = tf.nn.softmax(logits)
-
-            cross_entropy = - tf.reduce_sum((labels * tf.log(softmax + epsilon)), reduction_indices=[1])
-
+            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    logits, labels)
             cross_entropy_mean = tf.reduce_mean(cross_entropy)
+            tf.scalar_summary('loss', cross_entropy_mean)
             self.calculated_loss = cross_entropy_mean
 
-            tf.add_to_collection('losses', cross_entropy_mean)
+            #logits = tf.reshape(logits, [-1, 255])
+            #epsilon = tf.constant(value=1e-10)
+            #logits  = logits + epsilon
 
-            loss = tf.add_n(tf.get_collection('losses'))
-            tf.scalar_summary('loss', loss)
+            #labels_flat = tf.reshape(labels, (-1, 1))
+
+            #labels = tf.reshape(tf.one_hot(labels_flat, depth=255), [-1, 255])
+
+            #softmax = tf.nn.softmax(logits)
+
+            #cross_entropy = - tf.reduce_sum((labels * tf.log(softmax + epsilon)), reduction_indices=[1])
+
+            #cross_entropy_mean = tf.reduce_mean(cross_entropy)
+            #self.calculated_loss = cross_entropy_mean
+
+            #tf.add_to_collection('losses', cross_entropy_mean)
+
+            #loss = tf.add_n(tf.get_collection('losses'))
+            #tf.scalar_summary('loss', loss)
         return logits, labels, cross_entropy
 
         #    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(y_conv, y)
@@ -274,10 +308,15 @@ class ImageClassifier:
 
     def predict(self, y_conv, y):
         with tf.variable_scope('Prediction') as scope_conv:
-            correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y, 1))
+            y = tf.reshape(y, [-1])
+            #correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y, 1))
+            correct_prediction = tf.equal(tf.argmax(tf.round(tf.cast(tf.nn.sigmoid(y_conv), tf.int64)), 1), tf.round(y))
+            tf.scalar_summary("correct_predictions", tf.reduce_sum(tf.cast(correct_prediction, tf.float32)))
+
         return correct_prediction
 
     def calculate_accuracy(self, correct_prediction):
+        # TODO: http://stackoverflow.com/questions/37746670/tensorflow-multi-label-accuracy-calculation
         with tf.variable_scope('Accuracy') as scope_conv:
             self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
             tf.scalar_summary('accuracy', self.accuracy)
