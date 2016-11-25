@@ -18,6 +18,7 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 
 FLAGS = tf.app.flags.FLAGS
 
+NUM_CLASSES = 2
 
 def main(argv=None):
 
@@ -31,7 +32,7 @@ def main(argv=None):
 
 
     classifier_model = ImageClassifier(
-            train_x, train_y,
+            train_x, train_y, NUM_CLASSES,
             batch_size=FLAGS.batch_size)
 
 #sess = tf.Session()
