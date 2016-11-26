@@ -18,7 +18,8 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 
 FLAGS = tf.app.flags.FLAGS
 
-NUM_CLASSES = 2
+NUM_CLASSES = 7
+IMAGE_SIZE = 128
 
 def main(argv=None):
 
@@ -28,11 +29,11 @@ def main(argv=None):
     print()
 
     sess = tf.InteractiveSession()
-    train_x, train_y = inputs.train_pipeline("data/train.tfrecord", batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
+    train_x, train_y = inputs.train_pipeline("data/train.tfrecord", IMAGE_SIZE, batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
 
 
     classifier_model = ImageClassifier(
-            train_x, train_y, NUM_CLASSES,
+            train_x, train_y, NUM_CLASSES, IMAGE_SIZE,
             batch_size=FLAGS.batch_size)
 
 #sess = tf.Session()

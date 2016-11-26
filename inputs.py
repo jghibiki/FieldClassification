@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def read_and_decode(file_name_queue):
+def read_and_decode(file_name_queue, image_size):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(file_name_queue)
     features = tf.parse_single_example(
@@ -13,16 +13,16 @@ def read_and_decode(file_name_queue):
             })
 
     image = tf.decode_raw(features['image_raw'], tf.uint8)
-    image = tf.reshape(image, [128, 128, 4])
-    image.set_shape([128, 128, 4])
+    image = tf.reshape(image, [image_size, image_size, 4])
+    image.set_shape([image_size, image_size, 4])
     image = tf.cast(image, tf.float32)
     #image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
 
 
 
     label = tf.decode_raw(features['label_raw'], tf.uint8)
-    label = tf.reshape(label, [128, 128])
-    label.set_shape([128, 128])
+    label = tf.reshape(label, [image_size, image_size])
+    label.set_shape([image_size, image_size])
     label = tf.cast(label, tf.int64)
 
 
@@ -30,12 +30,12 @@ def read_and_decode(file_name_queue):
 
 
 
-def train_pipeline(file_name, batch_size, num_epochs=None):
+def train_pipeline(file_name, image_size, batch_size, num_epochs=None):
     file_name_queue = tf.train.string_input_producer([file_name],
             num_epochs=num_epochs,
             shuffle=True)
 
-    example, label = read_and_decode(file_name_queue)
+    example, label = read_and_decode(file_name_queue, image_size)
 
     min_after_dequeue = 10000
     capacity = min_after_dequeue + 3 * batch_size

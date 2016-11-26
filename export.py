@@ -31,7 +31,7 @@ def getLabel(i):
     for row in labels:
         new_row = []
         for pixel in row:
-            if pixel > 1:
+            if pixel > 6:
                 new_row.append(0)
             else:
                 new_row.append(pixel)
