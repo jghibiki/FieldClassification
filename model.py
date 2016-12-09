@@ -64,12 +64,14 @@ class ImageClassifier:
         self.eval = eval
 
         # input and label summaries
+        self.image_image = tf.slice(images, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
         tf.image_summary('input',
                 # slice removes nir layer which is stored as alpha
-                tf.slice(images, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3]),
+                self.image_image,
                 max_images=50)
+        self.label_image = scaled_label = ((tf.cast(labels, tf.float32)/self.num_classes)*255)
         tf.image_summary('label',
-                tf.reshape(tf.cast(labels, tf.uint8), [-1, self.image_size, self.image_size, 1]),
+                tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
                 max_images=50)
 
         if not eval:
@@ -106,6 +108,7 @@ class ImageClassifier:
 
         conv_class = self.conv_class_layer(conv1_decode)
 
+
         return conv_class
 
     def loss(self, logits, labels):
@@ -122,9 +125,16 @@ class ImageClassifier:
         # build a graph that computes predictions from the inference model
         logits = self.inference(images)
 
-        labels = tf.cast(labels, tf.int32)
-        labels = tf.argmax(labels, 1)
+        img = tf.argmax(logits, 3)
+        img = tf.cast(img, tf.float32)
+        self.class_image = tf.reshape(img, [-1, self.image_size, self.image_size, 1])
+        tf.image_summary("classification_map", self.class_image, max_images=500)
 
+        labels = tf.cast(labels, tf.int32)
+        #labels = tf.argmax(labels, 1)
+
+        logits = tf.reshape(logits, [-1, self.num_classes])
+        labels = tf.reshape(labels, [-1])
 
         # calculate predictions
         self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
@@ -379,12 +389,12 @@ class ImageClassifier:
             return accuracy, loss, summary, self.run_metadata
 
     def evaluate_once(self, sess):
-        predictions = sess.run([self.top_k_op],
+        predictions, summary, image, label, class_img = sess.run([self.top_k_op, self.merged, self.image_image, self.label_image, self.class_image],
             feed_dict={
                 self.keep_prob: 1
         })
 
-        return predictions
+        return predictions, summary, image, label, class_img
 
     def save(self, sess, global_step=None):
         return self.saver.save(sess, self.checkpoint_file, global_step=global_step)

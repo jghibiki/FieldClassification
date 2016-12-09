@@ -1,3 +1,2 @@
 output/
-input.tiff
-output.tiff
+*.tif

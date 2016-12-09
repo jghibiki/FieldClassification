@@ -8,11 +8,11 @@ from PIL import Image
 import numpy as np
 
 
-def getImage(i):
-    image_r = Image.open("raw_images/IMG-R-%08d.png" % i)
-    image_g = Image.open("raw_images/IMG-G-%08d.png" % i)
-    image_b = Image.open("raw_images/IMG-B-%08d.png" % i)
-    image_a = Image.open("raw_images/IMG-A-%08d.png" % i)
+def getImage(base, i):
+    image_r = Image.open("%s/IMG-R-%08d.png" % (base, i))
+    image_g = Image.open("%s/IMG-G-%08d.png" % (base, i))
+    image_b = Image.open("%s/IMG-B-%08d.png" % (base, i))
+    image_a = Image.open("%s/IMG-A-%08d.png" % (base, i))
     image = np.array([
         np.array(image_r)[..., np.newaxis],
         np.array(image_g)[..., np.newaxis],
@@ -22,8 +22,8 @@ def getImage(i):
     image = np.concatenate(image, axis=-1)
     return image
 
-def getLabel(i):
-    labels = Image.open("raw_images/LBL-%08d.png" % i)
+def getLabel(base, i):
+    labels = Image.open("%s/LBL-%08d.png" % (base, i))
 
     labels = np.asarray(labels)
     simplified_labels = []
@@ -42,9 +42,9 @@ def getLabel(i):
 
     return labels
 
-def getExample(i):
-    image = getImage(i)
-    label = getLabel(i)
+def getExample(base, i):
+    image = getImage(base, i)
+    label = getLabel(base, i)
     example = convert_to(image, label)
     return example
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     start = datetime.now()
 
     for i in xrange(8963):
-        example = getExample(i)
+        example = getExample("raw_images", i)
         writer.write(example.SerializeToString())
 
         if i % 1 is 0:
@@ -99,3 +99,19 @@ if __name__ == '__main__':
             sys.stdout.flush()
     print()
 
+    print("Exporting Training Data")
+
+    filename = "data/test.tfrecord"
+    writer = tf.python_io.TFRecordWriter(filename)
+
+    start = datetime.now()
+
+    for i in xrange(2843):
+        example = getExample("test_raw_images", i)
+        writer.write(example.SerializeToString())
+
+        if i % 1 is 0:
+
+            print("\rCompleted: %08d" % (i), end="")
+            sys.stdout.flush()
+    print()
