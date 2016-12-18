@@ -6,6 +6,7 @@ import signal
 import tensorflow as tf
 from PIL import Image
 import numpy as np
+import calculate_labels
 
 
 def getImage(base, i):
@@ -28,14 +29,18 @@ def getLabel(base, i):
     labels = np.asarray(labels)
     simplified_labels = []
 
-    for row in labels:
-        new_row = []
-        for pixel in row:
-            if pixel > 256:
-                new_row.append(0)
-            else:
-                new_row.append(pixel)
-        simplified_labels.append(new_row)
+    def convert(pixel):
+        return calculate_labels.lookup[pixel]
+    simplified_labels = np.vectorize(convert)(labels)
+
+    #for row in labels:
+    #    new_row = []
+    #    for pixel in row:
+    #        if pixel > 256:
+    #            new_row.append(0)
+    #        else:
+    #            new_row.append(pixel)
+    #    simplified_labels.append(new_row)
 
     simplified_labels = np.asarray(simplified_labels, dtype=np.uint8)
     labels = Image.fromarray(simplified_labels)
