@@ -18,7 +18,7 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 
 FLAGS = tf.app.flags.FLAGS
 
-NUM_CLASSES = 255
+NUM_CLASSES = 37
 IMAGE_SIZE = 128
 
 def main(argv=None):
@@ -38,13 +38,13 @@ def main(argv=None):
 
 #sess = tf.Session()
 
-    train_writer = tf.train.SummaryWriter(FLAGS.output_dir + FLAGS.summary_train_dir, sess.graph)
+    train_writer = tf.summary.FileWriter(FLAGS.output_dir + FLAGS.summary_train_dir, sess.graph)
 
     coord = tf.train.Coordinator()
 
     with sess.as_default():
-        sess.run(tf.initialize_all_variables())
-        sess.run(tf.initialize_local_variables())
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
         threads = tf.train.start_queue_runners(coord=coord)
 

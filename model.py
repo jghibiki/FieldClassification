@@ -17,7 +17,7 @@ def weight_variavle_with_weight_decay(name, shape, initializer, wd):
 
     if wd is not None:
         weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
-        tf.scalar_summary('weight_decay/' + name, weight_decay)
+        tf.summary.scalar('weight_decay/' + name, weight_decay)
 
     return var
 
@@ -41,20 +41,20 @@ def batch_norm(x):
 def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-def variable_summaries(var, name):
+def variable_summaries(name, var):
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.scalar_summary('mean/' + name, mean)
+        tf.summary.scalar('mean/' + name, mean)
         with tf.name_scope('stddev'):
             stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.scalar_summary('stddev/' + name, stddev)
-        tf.scalar_summary('max/' + name, tf.reduce_max(var))
-        tf.scalar_summary('min/' + name, tf.reduce_min(var))
-        tf.histogram_summary(name, var)
+        tf.summary.scalar('stddev/' + name, stddev)
+        tf.summary.scalar('max/' + name, tf.reduce_max(var))
+        tf.summary.scalar('min/' + name, tf.reduce_min(var))
+        tf.summary.histogram(name, var)
 
 class ImageClassifier:
 
-    def __init__(self, images, labels, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt"):
+    def __init__(self, images, labels, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt-1000"):
         self.image_size = image_size
         self.num_classes = num_classes
         self.batch_size = batch_size
@@ -65,14 +65,14 @@ class ImageClassifier:
 
         # input and label summaries
         self.image_image = tf.slice(images, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
-        tf.image_summary('input',
+        tf.summary.image('input',
                 # slice removes nir layer which is stored as alpha
                 self.image_image,
-                max_images=50)
+                max_outputs=50)
         self.label_image = scaled_label = ((tf.cast(labels, tf.float32)/self.num_classes)*255)
-        tf.image_summary('label',
+        tf.summary.image('label',
                 tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
-                max_images=50)
+                max_outputs=50)
 
         if not eval:
             self.loss(
@@ -86,7 +86,7 @@ class ImageClassifier:
         self.run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         self.run_metadata = tf.RunMetadata()
 
-        self.merged = tf.merge_all_summaries()
+        self.merged = tf.summary.merge_all()
 
 
     def inference(self, x):
@@ -132,7 +132,7 @@ class ImageClassifier:
         img = tf.argmax(logits, 3)
         img = tf.cast(img, tf.float32)
         self.class_image = tf.reshape(img, [-1, self.image_size, self.image_size, 1])
-        tf.image_summary("classification_map", self.class_image, max_images=500)
+        tf.summary.image("classification-map", self.class_image, max_outputs=500)
 
         labels = tf.cast(labels, tf.int32)
         #labels = tf.argmax(labels, 1)
@@ -151,9 +151,9 @@ class ImageClassifier:
 
         with tf.variable_scope('conv1') as scope_conv:
             W_conv1 = weight_variable([7, 7, 4, 64])
-            variable_summaries(W_conv1, "W_conv1")
+            variable_summaries("W-conv1", W_conv1)
             b_conv1 = bias_variable([64])
-            variable_summaries(b_conv1, "b_conv1")
+            variable_summaries("b-conv1", b_conv1)
 
             x_image = tf.reshape(x, [self.batch_size, self.image_size, self.image_size, 4])
 
@@ -162,7 +162,7 @@ class ImageClassifier:
             h_relu1 = tf.nn.relu(h_batch_norm1)
             h_pool1 = max_pool_2x2(h_relu1)
 
-            self.image_summary(h_relu1, 'conv1/filters')
+            self.image_summary('conv1/filters', h_relu1)
 
             return h_pool1
 
@@ -170,9 +170,9 @@ class ImageClassifier:
     def conv2_layer(self, h_pool1):
         with tf.variable_scope('conv2') as scope_conv:
             W_conv2 = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv2, "W_conv2")
+            variable_summaries("W-conv2", W_conv2, )
             b_conv2 = bias_variable([64])
-            variable_summaries(b_conv2, "b_conv2")
+            variable_summaries("b-conv2", b_conv2)
 
 
             h_conv2 = conv2d(h_pool1, W_conv2) + b_conv2
@@ -181,7 +181,7 @@ class ImageClassifier:
             h_pool2 = max_pool_2x2(h_relu2)
             h_dropout = tf.nn.dropout(h_pool2, self.keep_prob)
 
-            self.image_summary(h_relu2, 'conv2/filters')
+            self.image_summary('conv2/filters', h_relu2)
 
             return h_dropout
 
@@ -189,9 +189,9 @@ class ImageClassifier:
     def conv3_layer(self, h_pool1):
         with tf.variable_scope('conv3') as scope_conv:
             W_conv = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv, "W_conv3")
+            variable_summaries("W-conv3", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv3")
+            variable_summaries("b-conv3", b_conv)
 
 
             h_conv = conv2d(h_pool1, W_conv) + b_conv
@@ -200,7 +200,7 @@ class ImageClassifier:
             h_pool = max_pool_2x2(h_relu)
             h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
 
-            self.image_summary(h_relu, 'conv3/filters')
+            self.image_summary('conv3/filters', h_relu)
 
             return h_dropout
 
@@ -208,9 +208,9 @@ class ImageClassifier:
     def conv4_layer(self, h_pool1):
         with tf.variable_scope('conv4') as scope_conv:
             W_conv = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv, "W_conv4")
+            variable_summaries("W-conv4", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv4")
+            variable_summaries("b-conv4", b_conv)
 
 
             h_conv = conv2d(h_pool1, W_conv) + b_conv
@@ -219,32 +219,32 @@ class ImageClassifier:
             h_pool = max_pool_2x2(h_relu)
             h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
 
-            self.image_summary(h_relu, 'conv4/filters')
+            self.image_summary('conv4/filters', h_relu)
 
             return h_dropout
 
     def deconv4_layer(self, h_pool2):
         with tf.variable_scope('deconv4') as scope_conv:
             W_deconv = weight_variable([2, 2, 64, 64])
-            variable_summaries(W_deconv, "W_deconv4")
+            variable_summaries("W-deconv4", W_deconv)
 
             h_deconv = tf.nn.conv2d_transpose(h_pool2, W_deconv, [self.batch_size, self.image_size/8, self.image_size/8, 64], [1, 2, 2, 1])
-            self.image_summary(h_deconv, 'deconv4/filters')
+            self.image_summary('deconv4/filters', h_deconv)
 
             return h_deconv
 
     def conv_decode4_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode4') as scope_conv:
             W_conv = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv, "W_conv_decode4")
+            variable_summaries("W-conv-decode4", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv_decode4")
+            variable_summaries("b-conv-decode4", b_conv)
 
             h_conv = tf.nn.conv2d(h_deconv1, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
             h_dropout = tf.nn.dropout(h_relu, self.keep_prob)
-            self.image_summary(h_relu, 'conv_decode4/filters')
+            self.image_summary('conv-decode4/filters', h_relu)
 
             return h_dropout
 
@@ -252,50 +252,50 @@ class ImageClassifier:
     def deconv3_layer(self, h_pool2):
         with tf.variable_scope('deconv3') as scope_conv:
             W_deconv = weight_variable([2, 2, 64, 64])
-            variable_summaries(W_deconv, "W_deconv3")
+            variable_summaries("W-deconv3", W_deconv)
 
             h_deconv = tf.nn.conv2d_transpose(h_pool2, W_deconv, [self.batch_size, self.image_size/4, self.image_size/4, 64], [1, 2, 2, 1])
-            self.image_summary(h_deconv, 'deconv3/filters')
+            self.image_summary('deconv3/filters', h_deconv)
 
             return h_deconv
 
     def conv_decode3_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode3') as scope_conv:
             W_conv = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv, "W_conv_decode3")
+            variable_summaries("W-conv-decode3", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv_decode3")
+            variable_summaries("b-conv-decode3", b_conv)
 
             h_conv = tf.nn.conv2d(h_deconv1, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
             h_dropout = tf.nn.dropout(h_relu, self.keep_prob)
-            self.image_summary(h_relu, 'conv_decode3/filters')
+            self.image_summary('conv-decode3/filters', h_relu)
 
             return h_dropout
 
     def deconv2_layer(self, h_pool2):
         with tf.variable_scope('deconv2') as scope_conv:
             W_deconv2 = weight_variable([2, 2, 64, 64])
-            variable_summaries(W_deconv2, "W_deconv2")
+            variable_summaries("W-deconv2", W_deconv2)
 
             h_deconv2 = tf.nn.conv2d_transpose(h_pool2, W_deconv2, [self.batch_size, self.image_size/2, self.image_size/2, 64], [1, 2, 2, 1])
-            self.image_summary(h_deconv2, 'deconv2/filters')
+            self.image_summary('deconv2/filters', h_deconv2)
 
             return h_deconv2
 
     def conv_decode2_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode2') as scope_conv:
             W_conv = weight_variable([7, 7, 64, 64])
-            variable_summaries(W_conv, "W_conv_decode2")
+            variable_summaries("W-conv-decode2", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv_decode2")
+            variable_summaries("b-conv-decode2", b_conv)
 
             h_conv = tf.nn.conv2d(h_deconv1, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
             h_dropout = tf.nn.dropout(h_relu, self.keep_prob)
-            self.image_summary(h_relu, 'conv_decode2/filters')
+            self.image_summary('conv-decode2/filters', h_relu)
 
             return h_dropout
 
@@ -303,41 +303,41 @@ class ImageClassifier:
     def deconv1_layer(self, h_pool2):
         with tf.variable_scope('deconv1') as scope_conv:
             W_deconv1 = weight_variable([2, 2, 64, 64])
-            variable_summaries(W_deconv1, "W_deconv1")
+            variable_summaries("W-deconv1", W_deconv1)
 
             h_deconv1 = tf.nn.conv2d_transpose(h_pool2, W_deconv1, [self.batch_size, self.image_size, self.image_size, 64], [1, 2, 2, 1])
-            self.image_summary(h_deconv1, 'deconv1/filters')
+            self.image_summary('deconv1/filters', h_deconv1)
 
             return h_deconv1
 
 
     def conv_decode1_layer(self, h_deconv2):
-        with tf.variable_scope('conv_decode1') as scope_conv:
+        with tf.variable_scope('conv-decode1') as scope_conv:
             W_conv = weight_variable([5, 5, 64, 64])
-            variable_summaries(W_conv, "W_conv_decode1")
+            variable_summaries("W-conv-decode1", W_conv)
             b_conv = bias_variable([64])
-            variable_summaries(b_conv, "b_conv_decode1")
+            variable_summaries("b-conv-decode1", b_conv)
 
             h_conv = tf.nn.conv2d(h_deconv2, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
-            self.image_summary(h_relu, 'conv_decode1/filters')
+            self.image_summary('conv-decode1/filters', h_relu)
 
             return h_conv
 
     def conv_class_layer(self, h_conv_decode1):
-        with tf.variable_scope('conv_classification') as scope_conv:
+        with tf.variable_scope('conv-classification') as scope_conv:
 
             W_conv_class = weight_variavle_with_weight_decay(
                 "W_conv_class",
                 [1, 1, 64, self.num_classes],
                 msra_initializer(1, 64),
                 0.0005)
-            variable_summaries(W_conv_class, "W_conv_classification")
+            variable_summaries("W-conv-classification", W_conv_class)
             b_conv_class = bias_variable([self.num_classes])
-            variable_summaries(b_conv_class, "b_conv_classification")
+            variable_summaries("b-conv-classification", b_conv_class)
             h_conv_class = tf.nn.conv2d(h_conv_decode1, W_conv_class, [1, 1, 1, 1], padding="SAME") + b_conv_class
-            self.image_summary(h_conv_class, 'conv_class_layer/filters')
+            self.image_summary('conv-class-layer/filters', h_conv_class)
 
             # combine conv_class filters into single classification image
             class_image = tf.argmax(tf.reshape(tf.round(h_conv_class), [-1, self.num_classes, self.image_size, self.image_size]), 1)
@@ -347,7 +347,7 @@ class ImageClassifier:
             class_image = tf.reshape(class_image, [-1, self.image_size, self.image_size, 1])
             class_image = tf.cast(class_image, tf.float32)
 
-            self.image_summary(class_image, "class_image")
+            self.image_summary("class-image", class_image)
 
         return h_conv_class
 
@@ -361,7 +361,7 @@ class ImageClassifier:
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
                     logits, labels)
             cross_entropy_mean = tf.reduce_mean(cross_entropy)
-            tf.scalar_summary('loss', cross_entropy_mean)
+            tf.summary.scalar('loss', cross_entropy_mean)
             self.calculated_loss = cross_entropy_mean
 
             #logits = tf.reshape(logits, [-1, 255])
@@ -398,10 +398,10 @@ class ImageClassifier:
         with tf.variable_scope('Prediction') as scope_conv:
             y = tf.reshape(y, [-1])
             correct_prediction = tf.equal(tf.argmax(y_conv, 1), y)
-            tf.scalar_summary("correct_predictions", tf.reduce_sum(tf.cast(correct_prediction, tf.float32)))
+            tf.summary.scalar("correct-predictions", tf.reduce_sum(tf.cast(correct_prediction, tf.float32)))
 
             prediction_image = tf.reshape(tf.cast(correct_prediction, tf.float32), [-1, self.image_size, self.image_size, 1])
-            self.image_summary(prediction_image, "prediction_image")
+            tf.summary.image("prediction-image", prediction_image)
 
         return correct_prediction
 
@@ -409,16 +409,16 @@ class ImageClassifier:
         # TODO: http://stackoverflow.com/questions/37746670/tensorflow-multi-label-accuracy-calculation
         with tf.variable_scope('Accuracy') as scope_conv:
             self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-            tf.scalar_summary('accuracy', self.accuracy)
+            tf.summary.scalar('accuracy', self.accuracy)
 
-    def image_summary(self, h_conv, tag_name):
+    def image_summary(self, tag_name, h_conv):
 
         h_conv_features = tf.unpack(h_conv, axis=3)
         h_conv_max = tf.reduce_max(h_conv)
         h_conv_features_padded = map(lambda t: tf.pad(t-h_conv_max, [[0,0], [0,1], [0,0]]) + h_conv_max, h_conv_features)
         h_conv_imgs = tf.expand_dims(tf.concat(1, h_conv_features_padded), -1)
 
-        tf.image_summary(tag_name, h_conv_imgs, max_images=5)
+        tf.summary.image(tag_name, h_conv_imgs, max_outputs=5)
 
 
 

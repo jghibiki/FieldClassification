@@ -27,25 +27,11 @@ def getLabel(base, i):
     labels = Image.open("%s/LBL-%08d.png" % (base, i))
 
     labels = np.asarray(labels)
-    simplified_labels = []
 
-    def convert(pixel):
-        return calculate_labels.lookup[pixel]
-    simplified_labels = np.vectorize(convert)(labels)
+    simplified_labels = [ [ calculate_labels.lookup[pixel] for pixel in y ] for y in labels ]
+    simplified_labels = np.asarray(simplified_labels, np.uint8)
 
-    #for row in labels:
-    #    new_row = []
-    #    for pixel in row:
-    #        if pixel > 256:
-    #            new_row.append(0)
-    #        else:
-    #            new_row.append(pixel)
-    #    simplified_labels.append(new_row)
-
-    simplified_labels = np.asarray(simplified_labels, dtype=np.uint8)
-    labels = Image.fromarray(simplified_labels)
-
-    return labels
+    return simplified_labels
 
 def getExample(base, i):
     image = getImage(base, i)
@@ -102,6 +88,7 @@ if __name__ == '__main__':
 
             print("\rCompleted: %08d" % (i), end="")
             sys.stdout.flush()
+    writer.close()
     print()
 
     print("Exporting Training Data")
@@ -119,4 +106,5 @@ if __name__ == '__main__':
 
             print("\rCompleted: %08d" % (i), end="")
             sys.stdout.flush()
+    writer.close()
     print()

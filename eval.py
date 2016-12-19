@@ -20,7 +20,7 @@ color_lut =range(256, 0, -1) * 3 # [ x for x in range(256) ]
 np.random.shuffle(color_lut)
 
 
-NUM_CLASSES = 7
+NUM_CLASSES = 255
 IMAGE_SIZE = 128
 
 x, y = inputs.train_pipeline("data/test.tfrecord", IMAGE_SIZE, batch_size=1, num_epochs=1)
