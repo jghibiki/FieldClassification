@@ -1,9 +1,11 @@
 from __future__ import print_function
 import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 import sys
 from model import ImageClassifier
 from datetime import datetime
 import inputs
+import numpy as np
 
 tf.flags.DEFINE_integer("batch_size", 1, "The batch size to use while training (default: 1).")
 tf.flags.DEFINE_integer("num_epochs", 5, "The number of epochs to train for (default:5).")
@@ -38,9 +40,11 @@ def main(argv=None):
 
 #sess = tf.Session()
 
-    train_writer = tf.summary.FileWriter(FLAGS.output_dir + FLAGS.summary_train_dir, sess.graph)
+    summary_dir = FLAGS.output_dir + FLAGS.summary_train_dir
+    train_writer = tf.train.SummaryWriter(summary_dir, sess.graph)
 
     coord = tf.train.Coordinator()
+
 
     with sess.as_default():
         sess.run(tf.global_variables_initializer())
@@ -48,12 +52,15 @@ def main(argv=None):
 
         threads = tf.train.start_queue_runners(coord=coord)
 
+        emb = []
+
         try:
             step = 0
             start = datetime.now()
             while not coord.should_stop():
 
-                accuracy, loss, summary, run_metadata = classifier_model.train(sess)
+                accuracy, loss, summary, run_metadata, embeddings = classifier_model.train(sess)
+                emb.append(embeddings)
 
                 if step % FLAGS.report_every is 0:
                     now = datetime.now()
@@ -80,6 +87,25 @@ def main(argv=None):
             coord.request_stop()
 
         coord.join(threads)
+
+        emb = np.array(emb)
+        emb.shape = (-1, IMAGE_SIZE * IMAGE_SIZE, 1)
+        emb = np.squeeze(np.asarray(emb, np.uint8), 2)
+        emb_var = tf.Variable(emb, name='embedding_of_images')
+        sess.run(emb_var.initializer)
+
+
+        summary_writer = tf.summary.FileWriter("output/summaries/projector")
+        config = projector.ProjectorConfig()
+        embedding = config.embeddings.add()
+        embedding.tensor_name = emb_var.name
+
+        projector.visualize_embeddings(summary_writer, config)
+
+        saver = tf.train.Saver([emb_var])
+        saver.save(sess, 'output/summaries/projector/model2.ckpt', 1)
+
+
 
 
 if __name__ == "__main__":

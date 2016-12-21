@@ -1,5 +1,6 @@
 from __future__ import print_function
 import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 import numpy as np
 import sys
 from model import ImageClassifier
@@ -20,7 +21,7 @@ color_lut =range(256, 0, -1) * 3 # [ x for x in range(256) ]
 np.random.shuffle(color_lut)
 
 
-NUM_CLASSES = 255
+NUM_CLASSES = 37
 IMAGE_SIZE = 128
 
 x, y = inputs.train_pipeline("data/test.tfrecord", IMAGE_SIZE, batch_size=1, num_epochs=1)
@@ -44,6 +45,9 @@ with sess.as_default():
 
     test_writer = tf.train.SummaryWriter("output/eval/", sess.graph)
 
+    emb = []
+    imgs = []
+
     try:
         step = 0
         correct = 0 # counts correct predictions
@@ -51,10 +55,12 @@ with sess.as_default():
         start = datetime.now()
         while not coord.should_stop():
 
-            predictions, summary, image, label, class_img = classifier_model.evaluate_once(sess)
+            predictions, summary, image, label, class_img, image_tensor = classifier_model.evaluate_once(sess)
             correct += np.sum(predictions)
             total += len(predictions)
 
+            emb.append(image_tensor)
+            imgs.append(class_img)
 
             image = Image.fromarray(np.uint8(np.asarray(image[0])))
             label = Image.fromarray(np.uint8(np.asarray(label[0])))
@@ -65,7 +71,9 @@ with sess.as_default():
             #class_img = class_img.point(lambda i: i * 1.2 + 10)
             class_img = class_img.point(color_lut)
 
-            images = [image, label, class_img]
+            overlay_img = Image.blend(image, class_img, 0.4)
+
+            images = [image, label, class_img, overlay_img]
             widths, heights = zip(*(i.size for i in images))
 
             total_width = sum(widths)
@@ -99,3 +107,72 @@ with sess.as_default():
         coord.request_stop()
 
     coord.join(threads)
+
+    names = [
+            "background",
+            "corn",
+            "Sorghum",
+            "Soybeans",
+            "Sunflower",
+            "Barley",
+            "Durum Wheat",
+            "Spring Wheat",
+            "Winter Wheat",
+            "Rye",
+            "Oats",
+            "Millet",
+            "Canola",
+            "Flaxseed",
+            "Alfalfa",
+            "Other Hay/Non Alfalfa",
+            "Buckwheat",
+            "Sugarbeets",
+            "Dry Beans",
+            "Potatoes",
+            "Other Crops",
+            "Peas",
+            "Fallow/Idle Cropland",
+            "Open Water",
+            "Developed/Open Space",
+            "Developed/Low Intensity",
+            "Developed/Med Intensity",
+            "Developed/High Intensity",
+            "Barren",
+            "Deciduous Forest",
+            "Evergreen Forest",
+            "Mixed Forest",
+            "Shrubland",
+            "Grass/Pasture",
+            "Woody Wetlands",
+            "Herbaceous Wetlands",
+            "Radishes"
+    ]
+
+    emb = np.array(image_tensor)
+    print(emb.shape)
+    emb.shape = ( emb.shape[0] *  IMAGE_SIZE * IMAGE_SIZE, NUM_CLASSES)
+
+    imgs = np.array(imgs, np.int64)
+    imgs.shape = (imgs.shape[0] * IMAGE_SIZE * IMAGE_SIZE, 1)
+    imgs = np.squeeze(imgs)
+
+    metadata_file = open('output/eval/metadata.tsv', 'w')
+    for i in range(imgs.shape[0]):
+        metadata_file.write('%s\n' % (names[imgs[i]]))
+    metadata_file.close()
+
+    emb_var = tf.Variable(emb, name='embedding_of_images')
+    sess.run(emb_var.initializer)
+
+
+    summary_writer = tf.summary.FileWriter("output/eval")
+    config = projector.ProjectorConfig()
+    embedding = config.embeddings.add()
+    embedding.tensor_name = emb_var.name
+    embedding.metadata_path = 'output/eval/metadata.tsv'
+
+    projector.visualize_embeddings(summary_writer, config)
+
+    saver = tf.train.Saver([emb_var])
+    saver.save(sess, 'output/eval/model.ckpt', 1)
+

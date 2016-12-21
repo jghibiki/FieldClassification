@@ -1,5 +1,7 @@
 import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 import math
+import os
 
 def weight_variable(shape, initializer=None):
     if not initializer:
@@ -54,7 +56,7 @@ def variable_summaries(name, var):
 
 class ImageClassifier:
 
-    def __init__(self, images, labels, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt-1000"):
+    def __init__(self, images, labels, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt-1000-5000"):
         self.image_size = image_size
         self.num_classes = num_classes
         self.batch_size = batch_size
@@ -74,6 +76,7 @@ class ImageClassifier:
                 tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
                 max_outputs=50)
 
+
         if not eval:
             self.loss(
                 self.inference(images),
@@ -90,6 +93,7 @@ class ImageClassifier:
 
 
     def inference(self, x):
+
 
         self.keep_prob = tf.placeholder(tf.float32)
         lrn = self.local_response_normalization_layer(x)
@@ -128,6 +132,7 @@ class ImageClassifier:
 
         # build a graph that computes predictions from the inference model
         logits = self.inference(images)
+        self.image_tensor = logits
 
         img = tf.argmax(logits, 3)
         img = tf.cast(img, tf.float32)
@@ -335,12 +340,12 @@ class ImageClassifier:
                 0.0005)
             variable_summaries("W-conv-classification", W_conv_class)
             b_conv_class = bias_variable([self.num_classes])
-            variable_summaries("b-conv-classification", b_conv_class)
-            h_conv_class = tf.nn.conv2d(h_conv_decode1, W_conv_class, [1, 1, 1, 1], padding="SAME") + b_conv_class
-            self.image_summary('conv-class-layer/filters', h_conv_class)
+            variable_summaries("b-conv-classification", b_conv_class, )
+            self.emb = tf.nn.conv2d(h_conv_decode1, W_conv_class, [1, 1, 1, 1], padding="SAME") + b_conv_class
+            self.image_summary('conv_class_layer/filters', self.emb )
 
             # combine conv_class filters into single classification image
-            class_image = tf.argmax(tf.reshape(tf.round(h_conv_class), [-1, self.num_classes, self.image_size, self.image_size]), 1)
+            class_image = tf.argmax(tf.reshape(tf.round(self.emb), [-1, self.num_classes, self.image_size, self.image_size]), 1)
             #class_image = tf.reduce_max(max_indices, reduction_indices=[2], keep_dims=True)
             self.class_image = class_image
 
@@ -349,7 +354,7 @@ class ImageClassifier:
 
             self.image_summary("class-image", class_image)
 
-        return h_conv_class
+        return self.emb
 
 
     def calculate_loss(self, logits, labels):
@@ -424,13 +429,13 @@ class ImageClassifier:
 
     def train(self, sess, eval=False):
         if not eval:
-            summary, accuracy, loss, _ = sess.run([self.merged, self.accuracy, self.calculated_loss,  self.train_step],
+            summary, accuracy, loss, emb, _ = sess.run([self.merged, self.accuracy, self.calculated_loss, self.emb, self.train_step],
                     feed_dict={
                     self.keep_prob: self.dropout_rate
                 },
                 options=self.run_options,
                 run_metadata=self.run_metadata)
-            return accuracy, loss, summary, self.run_metadata
+            return accuracy, loss, summary, self.run_metadata, emb
         if eval:
             summary, accuracy, loss,  _ = sess.run([self.merged, self.accuracy, self.calculated_loss,  self.train_step],
                     feed_dict={
@@ -441,12 +446,12 @@ class ImageClassifier:
             return accuracy, loss, summary, self.run_metadata
 
     def evaluate_once(self, sess):
-        predictions, summary, image, label, class_img = sess.run([self.top_k_op, self.merged, self.image_image, self.label_image, self.class_image],
+        predictions, summary, image, label, class_img, img = sess.run([self.top_k_op, self.merged, self.image_image, self.label_image, self.class_image, self.image_tensor],
             feed_dict={
                 self.keep_prob: 1
         })
 
-        return predictions, summary, image, label, class_img
+        return predictions, summary, image, label, class_img, img
 
     def save(self, sess, global_step=None):
         return self.saver.save(sess, self.checkpoint_file, global_step=global_step)
