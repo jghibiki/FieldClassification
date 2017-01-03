@@ -8,6 +8,10 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
+# set random seed
+np.random.seed(1)
+
+NUM_IMAGES = 11807
 
 def getImage(base, i):
     image_r = Image.open("%s/IMG-R-%08d.png" % (base, i))
@@ -72,6 +76,13 @@ def convert_to(image, label):
 
 if __name__ == '__main__':
 
+    image_list = np.arange(NUM_IMAGES)
+    np.random.shuffle(image_list)
+    test_size = int(image_list.shape[0]*0.1)
+    test = image_list[:test_size]
+    train = image_list[test_size:]
+
+    print("Calculated Partitions: train: {0}, test: {1}".format(train.shape[0], test.shape[0]))
 
     print("Exporting Training Data")
 
@@ -80,14 +91,15 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(8963):
+    for i in range(train.shape[0]):
+        print("\rConverting: %08d image #%08d" % (i, train[i]), end="")
+        sys.stdout.flush()
+
         example = getExample("raw_images", i)
         writer.write(example.SerializeToString())
 
-        if i % 1 is 0:
-
-            print("\rCompleted: %08d" % (i), end="")
-            sys.stdout.flush()
+        print("\rCompleted: %08d" % (i), end="")
+        sys.stdout.flush()
     writer.close()
     print()
 
@@ -98,13 +110,14 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(2843):
-        example = getExample("test_raw_images", i)
+    for i in range(test.shape[0]):
+        print("\rConverting: %08d image #%08d" % (i, test[i]), end="")
+        sys.stdout.flush()
+
+        example = getExample("raw_images", i)
         writer.write(example.SerializeToString())
 
-        if i % 1 is 0:
-
-            print("\rCompleted: %08d" % (i), end="")
-            sys.stdout.flush()
+        print("\rCompleted: %08d" % (i), end="")
+        sys.stdout.flush()
     writer.close()
     print()

@@ -71,7 +71,8 @@ class ImageClassifier:
                 # slice removes nir layer which is stored as alpha
                 self.image_image,
                 max_outputs=50)
-        self.label_image = scaled_label = ((tf.cast(labels, tf.float32)/self.num_classes)*255)
+        self.label_image = labels
+        scaled_label = ((tf.cast(labels, tf.float32)/self.num_classes)*255)
         tf.summary.image('label',
                 tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
                 max_outputs=50)

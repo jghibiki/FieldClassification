@@ -5,15 +5,12 @@ from PIL import Image
 
 labels = []
 
-for image_no in range(1,4):
+NUM_IMAGES = 4
+for image_no in range(1,NUM_IMAGES+1):
     im2 = gdal.Open("labels_%s.tif" % image_no)
     im2 = np.array(im2.GetRasterBand(1).ReadAsArray()).flatten()
     labels += np.unique(im2).tolist()
 
-for image_no in range(1,2):
-    im2 = gdal.Open("labels_test_%s.tif" % image_no)
-    im2 = np.array(im2.GetRasterBand(1).ReadAsArray()).flatten()
-    labels += np.unique(im2).tolist()
 
 unique = sorted(set(labels))
 
