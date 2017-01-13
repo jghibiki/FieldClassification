@@ -11,7 +11,8 @@ import calculate_labels
 # set random seed
 np.random.seed(1)
 
-NUM_IMAGES = 11807
+NUM_IMAGES = 2894
+IMAGE_SIZE = 256
 
 def getImage(base, i):
     image_r = Image.open("%s/IMG-R-%08d.png" % (base, i))
@@ -54,11 +55,11 @@ def convert_to(image, label):
     image = np.asarray(image)
     label = np.asarray(label)
 
-    if(not image.shape[0] is 128 or not image.shape[1] is 128):
+    if(not image.shape[0] is IMAGE_SIZE or not image.shape[1] is IMAGE_SIZE):
         print("bad image")
         print(image.shape)
         exit()
-    if(not label.shape[0] is 128 or not label.shape[1] is 128):
+    if(not label.shape[0] is IMAGE_SIZE or not label.shape[1] is IMAGE_SIZE):
         print("bad label")
         print(label.shape)
         exit()

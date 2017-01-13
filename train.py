@@ -21,7 +21,7 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 FLAGS = tf.app.flags.FLAGS
 
 NUM_CLASSES = 37
-IMAGE_SIZE = 128
+IMAGE_SIZE = 256
 
 def main(argv=None):
 
@@ -30,15 +30,12 @@ def main(argv=None):
         print(k, "=", v)
     print()
 
-    sess = tf.InteractiveSession()
-    train_x, train_y = inputs.train_pipeline("data/train.tfrecord", IMAGE_SIZE, batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
+    #sess = tf.InteractiveSession()
+    input_generator = inputs.train_pipeline(batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
 
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size)
 
-    classifier_model = ImageClassifier(
-            train_x, train_y, NUM_CLASSES, IMAGE_SIZE,
-            batch_size=FLAGS.batch_size)
-
-#sess = tf.Session()
+    sess = tf.Session()
 
     summary_dir = FLAGS.output_dir + FLAGS.summary_train_dir
     train_writer = tf.train.SummaryWriter(summary_dir, sess.graph)
@@ -47,64 +44,30 @@ def main(argv=None):
 
 
     with sess.as_default():
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
+	sess.run(tf.global_variables_initializer())
+	sess.run(tf.local_variables_initializer())
 
-        threads = tf.train.start_queue_runners(coord=coord)
+        step = 0
+        start = datetime.now()
+        for batch in input_generator:
 
-        emb = []
+            accuracy, loss, summary, run_metadata, embeddings = classifier_model.train(sess, batch)
 
-        try:
-            step = 0
-            start = datetime.now()
-            while not coord.should_stop():
+            if step % FLAGS.report_every is 0:
+                now = datetime.now()
+                elapsed = now - start
+                average = elapsed / step if not step is 0 else 0
+                print("Step %08d, Accuracy %.6f, Loss %.6f, Average Time %s/step, Elapsed Time %s%s" % (step, accuracy*100, loss, average, elapsed, ", Created Summary" if step %FLAGS.summary_every is 0 else ""))
+                sys.stdout.flush()
 
-                accuracy, loss, summary, run_metadata, embeddings = classifier_model.train(sess)
-                emb.append(embeddings)
+            if step % FLAGS.summary_every is 0:
+                train_writer.add_run_metadata(run_metadata, 'step%d' % step)
+                train_writer.add_summary(summary, step)
 
-                if step % FLAGS.report_every is 0:
-                    now = datetime.now()
-                    elapsed = now - start
-                    average = elapsed / step if not step is 0 else 0
-                    print("Step %08d, Accuracy %.6f, Loss %.6f, Average Time %s/step, Elapsed Time %s%s" % (step, accuracy*100, loss, average, elapsed, ", Created Summary" if step %FLAGS.summary_every is 0 else ""))
-                    sys.stdout.flush()
+            if step % FLAGS.checkpoint_every is 0:
+                classifier_model.save(sess, global_step=step)
 
-                if step % FLAGS.summary_every is 0:
-                    train_writer.add_run_metadata(run_metadata, 'step%d' % step)
-                    train_writer.add_summary(summary, step)
-
-                if step % FLAGS.checkpoint_every is 0:
-                    classifier_model.save(sess, global_step=step)
-
-                step += 1
-
-        except tf.errors.OutOfRangeError:
-            print()
-            print("Done training for 1 epochs, %d steps" % step)
-        except:
-            raise
-        finally:
-            coord.request_stop()
-
-        coord.join(threads)
-
-        emb = np.array(emb)
-        emb.shape = (-1, IMAGE_SIZE * IMAGE_SIZE, 1)
-        emb = np.squeeze(np.asarray(emb, np.uint8), 2)
-        emb_var = tf.Variable(emb, name='embedding_of_images')
-        sess.run(emb_var.initializer)
-
-
-        summary_writer = tf.summary.FileWriter("output/summaries/projector")
-        config = projector.ProjectorConfig()
-        embedding = config.embeddings.add()
-        embedding.tensor_name = emb_var.name
-
-        projector.visualize_embeddings(summary_writer, config)
-
-        saver = tf.train.Saver([emb_var])
-        saver.save(sess, 'output/summaries/projector/model2.ckpt', 1)
-
+            step += 1
 
 
 

@@ -3,7 +3,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 import math
 import os
 
-def weight_variable(shape, initializer=None):
+def weight_variable(shape, name=None, initializer=None):
     if not initializer:
         initial = tf.truncated_normal(shape, stddev=0.1)
     else:
@@ -12,14 +12,15 @@ def weight_variable(shape, initializer=None):
 
         initial = tf.truncated_normal_initializer(shape, stddev=0.1)
 
-    return tf.Variable(initial)
+    return tf.Variable(initial, name=name)
 
 def weight_variavle_with_weight_decay(name, shape, initializer, wd):
     var = tf.get_variable(name, shape, initializer=initializer)
 
     if wd is not None:
         weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
-        tf.summary.scalar('weight_decay/' + name, weight_decay)
+        with tf.device("/cpu:0"):
+            tf.summary.scalar('weight_decay/' + name, weight_decay)
 
     return var
 
@@ -41,22 +42,105 @@ def batch_norm(x):
     return tf.contrib.layers.batch_norm(x, is_training=True, center=False, updates_collections=None)
 
 def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    return tf.nn.max_pool_with_argmax(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 def variable_summaries(name, var):
-    with tf.name_scope('summaries'):
-        mean = tf.reduce_mean(var)
-        tf.summary.scalar('mean/' + name, mean)
-        with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.summary.scalar('stddev/' + name, stddev)
-        tf.summary.scalar('max/' + name, tf.reduce_max(var))
-        tf.summary.scalar('min/' + name, tf.reduce_min(var))
-        tf.summary.histogram(name, var)
+    with tf.device("/cpu:0"):
+        with tf.name_scope('summaries'):
+            mean = tf.reduce_mean(var)
+            tf.summary.scalar('mean/' + name, mean)
+            with tf.name_scope('stddev'):
+                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.summary.scalar('stddev/' + name, stddev)
+            tf.summary.scalar('max/' + name, tf.reduce_max(var))
+            tf.summary.scalar('min/' + name, tf.reduce_min(var))
+            tf.summary.histogram(name, var)
+
+def unravel_argmax(argmax, shape):
+    output_list = []
+    with tf.device("/cpu:0"):
+        output_list.append(argmax // (shape[2] * shape[3]))
+        output_list.append(argmax % (shape[2] * shape[3]) // shape[3])
+        return tf.pack(output_list)
+
+def unpool_layer2x2(x, raveled_argmax, out_shape):
+    argmax = unravel_argmax(raveled_argmax, tf.to_int64(out_shape))
+    output = tf.zeros([out_shape[1], out_shape[2], out_shape[3]])
+
+    height = tf.shape(output)[0]
+    width = tf.shape(output)[1]
+    channels = tf.shape(output)[2]
+
+    t1 = tf.to_int64(tf.range(channels))
+    t1 = tf.tile(t1, [((width + 1) // 2) * ((height + 1) // 2)])
+    t1 = tf.reshape(t1, [-1, channels])
+    t1 = tf.transpose(t1, perm=[1, 0])
+    t1 = tf.reshape(t1, [channels, (height + 1) // 2, (width + 1) // 2, 1])
+
+    t2 = tf.squeeze(argmax)
+    t2 = tf.pack((t2[0], t2[1]), axis=0)
+    t2 = tf.transpose(t2, perm=[3, 1, 2, 0])
+
+    t = tf.concat(3, [t2, t1])
+    indices = tf.reshape(t, [((height + 1) // 2) * ((width + 1) // 2) * channels, 3])
+
+    x1 = tf.squeeze(x)
+    x1 = tf.reshape(x1, [-1, channels])
+    x1 = tf.transpose(x1, perm=[1, 0])
+    values = tf.reshape(x1, [-1])
+
+    delta = tf.SparseTensor(indices, values, tf.to_int64(tf.shape(output)))
+    return tf.expand_dims(tf.sparse_tensor_to_dense(tf.sparse_reorder(delta)), 0)
+
+def unpool_layer2x2_batch(x, argmax):
+    '''
+    Args:
+	x: 4D tensor of shape [batch_size x height x width x channels]
+	argmax: A Tensor of type Targmax. 4-D. The flattened indices of the max
+	values chosen for each output.
+    Return:
+	4D output tensor of shape [batch_size x 2*height x 2*width x channels]
+    '''
+    with tf.device("/cpu:0"):
+        x_shape = tf.shape(x)
+        out_shape = [x_shape[0], x_shape[1]*2, x_shape[2]*2, x_shape[3]]
+
+        batch_size = out_shape[0]
+        height = out_shape[1]
+        width = out_shape[2]
+        channels = out_shape[3]
+
+        argmax_shape = tf.to_int64([batch_size, height, width, channels])
+        argmax = unravel_argmax(argmax, argmax_shape)
+
+        t1 = tf.to_int64(tf.range(channels))
+        t1 = tf.tile(t1, [batch_size*(width//2)*(height//2)])
+        t1 = tf.reshape(t1, [-1, channels])
+        t1 = tf.transpose(t1, perm=[1, 0])
+        t1 = tf.reshape(t1, [channels, batch_size, height//2, width//2, 1])
+        t1 = tf.transpose(t1, perm=[1, 0, 2, 3, 4])
+
+        t2 = tf.to_int64(tf.range(batch_size))
+        t2 = tf.tile(t2, [channels*(width//2)*(height//2)])
+        t2 = tf.reshape(t2, [-1, batch_size])
+        t2 = tf.transpose(t2, perm=[1, 0])
+        t2 = tf.reshape(t2, [batch_size, channels, height//2, width//2, 1])
+
+        t3 = tf.transpose(argmax, perm=[1, 4, 2, 3, 0])
+
+        t = tf.concat(4, [t2, t3, t1])
+        indices = tf.reshape(t, [(height//2)*(width//2)*channels*batch_size, 4])
+
+        x1 = tf.transpose(x, perm=[0, 3, 1, 2])
+        values = tf.reshape(x1, [-1])
+
+        delta = tf.SparseTensor(indices, values, tf.to_int64(out_shape))
+        return tf.sparse_tensor_to_dense(tf.sparse_reorder(delta))
+
 
 class ImageClassifier:
 
-    def __init__(self, images, labels, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt-1000-5000"):
+    def __init__(self, num_classes, image_size, batch_size=50, num_epochs=500, dropout_rate=0.5, eval=False, checkpoint_file="output/model.ckpt-1000-5000-2500"):
         self.image_size = image_size
         self.num_classes = num_classes
         self.batch_size = batch_size
@@ -65,30 +149,36 @@ class ImageClassifier:
         self.checkpoint_file = checkpoint_file
         self.eval = eval
 
-        # input and label summaries
-        self.image_image = tf.slice(images, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
-        tf.summary.image('input',
-                # slice removes nir layer which is stored as alpha
-                self.image_image,
-                max_outputs=50)
-        self.label_image = labels
-        scaled_label = ((tf.cast(labels, tf.float32)/self.num_classes)*255)
-        tf.summary.image('label',
-                tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
-                max_outputs=50)
+        with tf.device("/cpu:0"):
+            with tf.name_scope("inputs"):
+                self.x = tf.placeholder(tf.float32, [self.batch_size, image_size, image_size, 4])
+                self.y = tf.placeholder(tf.int64, [self.batch_size, image_size, image_size])
 
 
-        if not eval:
-            self.loss(
-                self.inference(images),
-                labels
-            )
-        else:
-            self.evaluate(images, labels)
+            # input and label summaries
+            self.image_image = tf.slice(self.x, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
+            tf.image_summary('input',
+                    # slice removes nir layer which is stored as alpha
+                    self.image_image,
+                    max_images=50)
+            self.label_image = scaled_label = ((tf.cast(self.y, tf.float32)/self.num_classes)*255)
+            tf.image_summary('label',
+                    tf.reshape(scaled_label, [-1, self.image_size, self.image_size, 1]),
+                    max_images=50)
 
-        self.saver = tf.train.Saver()
-        self.run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        self.run_metadata = tf.RunMetadata()
+        with tf.device("/gpu:0"):
+            if not eval:
+                self.loss(
+                    self.inference(self.x),
+                    self.y
+                )
+            else:
+                self.evaluate(self.x, self.y)
+
+        with tf.device("/cpu:0"):
+            self.saver = tf.train.Saver()
+            self.run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            self.run_metadata = tf.RunMetadata()
 
         self.merged = tf.summary.merge_all()
 
@@ -138,7 +228,8 @@ class ImageClassifier:
         img = tf.argmax(logits, 3)
         img = tf.cast(img, tf.float32)
         self.class_image = tf.reshape(img, [-1, self.image_size, self.image_size, 1])
-        tf.summary.image("classification-map", self.class_image, max_outputs=500)
+        with tf.device("/cpu:0"):
+            tf.summary.image("classification-map", self.class_image, max_outputs=500)
 
         labels = tf.cast(labels, tf.int32)
         #labels = tf.argmax(labels, 1)
@@ -147,7 +238,8 @@ class ImageClassifier:
         labels = tf.reshape(labels, [-1])
 
         # calculate predictions
-        self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
+        with tf.device("/cpu:0"):
+            self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
 
     def local_response_normalization_layer(self, x):
@@ -156,7 +248,7 @@ class ImageClassifier:
     def conv1_layer(self, x):
 
         with tf.variable_scope('conv1') as scope_conv:
-            W_conv1 = weight_variable([7, 7, 4, 64])
+            W_conv1 = weight_variable([7, 7, 4, 64], "W_conv1")
             variable_summaries("W-conv1", W_conv1)
             b_conv1 = bias_variable([64])
             variable_summaries("b-conv1", b_conv1)
@@ -166,7 +258,7 @@ class ImageClassifier:
             h_conv1 = conv2d(x_image, W_conv1) + b_conv1
             h_batch_norm1 = batch_norm(h_conv1)
             h_relu1 = tf.nn.relu(h_batch_norm1)
-            h_pool1 = max_pool_2x2(h_relu1)
+            h_pool1, self.argmax1  = max_pool_2x2(h_relu1)
 
             self.image_summary('conv1/filters', h_relu1)
 
@@ -184,7 +276,7 @@ class ImageClassifier:
             h_conv2 = conv2d(h_pool1, W_conv2) + b_conv2
             h_batch_norm2 = batch_norm(h_conv2)
             h_relu2 = tf.nn.relu(h_batch_norm2)
-            h_pool2 = max_pool_2x2(h_relu2)
+            h_pool2, self.argmax2 = max_pool_2x2(h_relu2)
             h_dropout = tf.nn.dropout(h_pool2, self.keep_prob)
 
             self.image_summary('conv2/filters', h_relu2)
@@ -203,7 +295,7 @@ class ImageClassifier:
             h_conv = conv2d(h_pool1, W_conv) + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
-            h_pool = max_pool_2x2(h_relu)
+            h_pool, self.argmax3 = max_pool_2x2(h_relu)
             h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
 
             self.image_summary('conv3/filters', h_relu)
@@ -222,7 +314,7 @@ class ImageClassifier:
             h_conv = conv2d(h_pool1, W_conv) + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
-            h_pool = max_pool_2x2(h_relu)
+            h_pool, self.argmax4 = max_pool_2x2(h_relu)
             h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
 
             self.image_summary('conv4/filters', h_relu)
@@ -231,10 +323,11 @@ class ImageClassifier:
 
     def deconv4_layer(self, h_pool2):
         with tf.variable_scope('deconv4') as scope_conv:
-            W_deconv = weight_variable([2, 2, 64, 64])
-            variable_summaries("W-deconv4", W_deconv)
+            #W_deconv = weight_variable([2, 2, 64, 64])
+            #variable_summaries("W-deconv4", W_deconv)
 
-            h_deconv = tf.nn.conv2d_transpose(h_pool2, W_deconv, [self.batch_size, self.image_size/8, self.image_size/8, 64], [1, 2, 2, 1])
+            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax4)
+            h_deconv = tf.reshape(h_deconv, [self.batch_size, self.image_size/8, self.image_size/8, 64])
             self.image_summary('deconv4/filters', h_deconv)
 
             return h_deconv
@@ -257,10 +350,12 @@ class ImageClassifier:
 
     def deconv3_layer(self, h_pool2):
         with tf.variable_scope('deconv3') as scope_conv:
-            W_deconv = weight_variable([2, 2, 64, 64])
-            variable_summaries("W-deconv3", W_deconv)
+            #W_deconv = weight_variable([2, 2, 64, 64])
+            #variable_summaries("W-deconv3", W_deconv)
 
-            h_deconv = tf.nn.conv2d_transpose(h_pool2, W_deconv, [self.batch_size, self.image_size/4, self.image_size/4, 64], [1, 2, 2, 1])
+            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax3)
+            h_deconv = tf.reshape(h_deconv, [self.batch_size, self.image_size/4, self.image_size/4, 64])
+
             self.image_summary('deconv3/filters', h_deconv)
 
             return h_deconv
@@ -282,13 +377,15 @@ class ImageClassifier:
 
     def deconv2_layer(self, h_pool2):
         with tf.variable_scope('deconv2') as scope_conv:
-            W_deconv2 = weight_variable([2, 2, 64, 64])
-            variable_summaries("W-deconv2", W_deconv2)
+            #W_deconv = weight_variable([2, 2, 64, 64])
+            #variable_summaries("W-deconv2", W_deconv)
 
-            h_deconv2 = tf.nn.conv2d_transpose(h_pool2, W_deconv2, [self.batch_size, self.image_size/2, self.image_size/2, 64], [1, 2, 2, 1])
-            self.image_summary('deconv2/filters', h_deconv2)
+            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax2)
+            h_deconv = tf.reshape(h_deconv, [self.batch_size, self.image_size/2, self.image_size/2, 64])
 
-            return h_deconv2
+            self.image_summary('deconv2/filters', h_deconv)
+
+            return h_deconv
 
     def conv_decode2_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode2') as scope_conv:
@@ -308,13 +405,14 @@ class ImageClassifier:
 
     def deconv1_layer(self, h_pool2):
         with tf.variable_scope('deconv1') as scope_conv:
-            W_deconv1 = weight_variable([2, 2, 64, 64])
-            variable_summaries("W-deconv1", W_deconv1)
+            #W_deconv1 = weight_variable([2, 2, 64, 64])
+            #variable_summaries("W-deconv1", W_deconv1)
 
-            h_deconv1 = tf.nn.conv2d_transpose(h_pool2, W_deconv1, [self.batch_size, self.image_size, self.image_size, 64], [1, 2, 2, 1])
-            self.image_summary('deconv1/filters', h_deconv1)
+            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax1)
+            h_deconv = tf.reshape(h_deconv, [self.batch_size, self.image_size, self.image_size, 64])
+            self.image_summary('deconv1/filters', h_deconv)
 
-            return h_deconv1
+            return h_deconv
 
 
     def conv_decode1_layer(self, h_deconv2):
@@ -367,7 +465,8 @@ class ImageClassifier:
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
                     logits, labels)
             cross_entropy_mean = tf.reduce_mean(cross_entropy)
-            tf.summary.scalar('loss', cross_entropy_mean)
+            with tf.device("/cpu:0"):
+                tf.summary.scalar('loss', cross_entropy_mean)
             self.calculated_loss = cross_entropy_mean
 
             #logits = tf.reshape(logits, [-1, 255])
@@ -404,10 +503,11 @@ class ImageClassifier:
         with tf.variable_scope('Prediction') as scope_conv:
             y = tf.reshape(y, [-1])
             correct_prediction = tf.equal(tf.argmax(y_conv, 1), y)
-            tf.summary.scalar("correct-predictions", tf.reduce_sum(tf.cast(correct_prediction, tf.float32)))
+            with tf.device("/cpu:0"):
+                tf.summary.scalar("correct-predictions", tf.reduce_sum(tf.cast(correct_prediction, tf.float32)))
 
-            prediction_image = tf.reshape(tf.cast(correct_prediction, tf.float32), [-1, self.image_size, self.image_size, 1])
-            tf.summary.image("prediction-image", prediction_image)
+                prediction_image = tf.reshape(tf.cast(correct_prediction, tf.float32), [-1, self.image_size, self.image_size, 1])
+                tf.summary.image("prediction-image", prediction_image)
 
         return correct_prediction
 
@@ -415,41 +515,38 @@ class ImageClassifier:
         # TODO: http://stackoverflow.com/questions/37746670/tensorflow-multi-label-accuracy-calculation
         with tf.variable_scope('Accuracy') as scope_conv:
             self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-            tf.summary.scalar('accuracy', self.accuracy)
+            with tf.device("/cpu:0"):
+                tf.summary.scalar('accuracy', self.accuracy)
 
     def image_summary(self, tag_name, h_conv):
 
-        h_conv_features = tf.unpack(h_conv, axis=3)
-        h_conv_max = tf.reduce_max(h_conv)
-        h_conv_features_padded = map(lambda t: tf.pad(t-h_conv_max, [[0,0], [0,1], [0,0]]) + h_conv_max, h_conv_features)
-        h_conv_imgs = tf.expand_dims(tf.concat(1, h_conv_features_padded), -1)
+        with tf.device("/cpu:0"):
+            h_conv_features = tf.unpack(h_conv, axis=3)
+            h_conv_max = tf.reduce_max(h_conv)
+            h_conv_features_padded = map(lambda t: tf.pad(t-h_conv_max, [[0,0], [0,1], [0,0]]) + h_conv_max, h_conv_features)
+            h_conv_imgs = tf.expand_dims(tf.concat(1, h_conv_features_padded), -1)
 
-        tf.summary.image(tag_name, h_conv_imgs, max_outputs=5)
+            tf.summary.image(tag_name, h_conv_imgs, max_outputs=5)
 
 
 
-    def train(self, sess, eval=False):
-        if not eval:
-            summary, accuracy, loss, emb, _ = sess.run([self.merged, self.accuracy, self.calculated_loss, self.emb, self.train_step],
-                    feed_dict={
-                    self.keep_prob: self.dropout_rate
-                },
-                options=self.run_options,
-                run_metadata=self.run_metadata)
-            return accuracy, loss, summary, self.run_metadata, emb
-        if eval:
-            summary, accuracy, loss,  _ = sess.run([self.merged, self.accuracy, self.calculated_loss,  self.train_step],
-                    feed_dict={
-                    self.keep_prob: 0
-                },
-                options=self.run_options,
-                run_metadata=self.run_metadata)
-            return accuracy, loss, summary, self.run_metadata
+    def train(self, sess, batch, eval=False):
+        summary, accuracy, loss, emb, _ = sess.run([self.merged, self.accuracy, self.calculated_loss, self.emb, self.train_step],
+                feed_dict={
+                self.x: batch[0],
+                self.y: batch[1],
+                self.keep_prob: self.dropout_rate
+            },
+            options=self.run_options,
+            run_metadata=self.run_metadata)
+        return accuracy, loss, summary, self.run_metadata, emb
 
-    def evaluate_once(self, sess):
+    def evaluate_once(self, sess,batch):
         predictions, summary, image, label, class_img, img = sess.run([self.top_k_op, self.merged, self.image_image, self.label_image, self.class_image, self.image_tensor],
             feed_dict={
-                self.keep_prob: 1
+                self.keep_prob: 1,
+                self.x: batch[0],
+                self.y: batch[1]
         })
 
         return predictions, summary, image, label, class_img, img

@@ -19,8 +19,9 @@ np.random.seed(1)
 color_lut =range(256, 0, -1) * 3
 np.random.shuffle(color_lut)
 
+
+IMAGE_SIZE = 256
 NUM_CLASSES = 37
-IMAGE_SIZE = 128
 
 def main(argv=None):
 
@@ -29,23 +30,19 @@ def main(argv=None):
         print(k, "=", v)
     print()
 
-    x, y = inputs.train_pipeline("data/test.tfrecord", IMAGE_SIZE, batch_size=1, num_epochs=1)
-    classifier_model = ImageClassifier(
-            x, y, NUM_CLASSES, IMAGE_SIZE,
-            batch_size=1, eval=True)
+    input_generator = inputs.test_pipeline()
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-2500")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
 
-    coord = tf.train.Coordinator()
 
     with sess.as_default():
-        sess.run(tf.initialize_all_variables())
-        sess.run(tf.initialize_local_variables())
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
         classifier_model.load(sess)
 
-        threads = tf.train.start_queue_runners(coord=coord)
 
         test_writer = tf.train.SummaryWriter("output/eval/", sess.graph)
 
@@ -59,9 +56,9 @@ def main(argv=None):
             correct = 0 # counts correct predictions
             total = 0 # counts total evaluated
             start = datetime.now()
-            while not coord.should_stop():
+            for batch in input_generator:
 
-                predictions, summary, image, label, class_img, image_tensor = classifier_model.evaluate_once(sess)
+                predictions, summary, image, label, class_img, image_tensor = classifier_model.evaluate_once(sess, batch)
                 correct += np.sum(predictions)
                 total += len(predictions)
 
@@ -114,10 +111,6 @@ def main(argv=None):
         except tf.errors.OutOfRangeError:
             print()
             print("Done evaluating, completed in %d steps" % step)
-        finally:
-            coord.request_stop()
-
-        coord.join(threads)
 
         if FLAGS.save_projections:
             names = [
