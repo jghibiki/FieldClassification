@@ -5,6 +5,8 @@ import numpy as np
 import sys
 import csv
 
+sys.setrecursionlimit(10**6)
+
 #lut = []
 #with open("label_ledgend.csv") as f:
 #    reader = csv.reader(f)
@@ -20,8 +22,8 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 4
-for image_no in xrange(1,NUM_IMAGES+1):
+NUM_IMAGES = 1
+for image_no in range(1,NUM_IMAGES+1):
     im = gdal.Open("input_%s.tif" % image_no)
     im2 = gdal.Open("labels_%s.tif" % image_no)
 
@@ -32,10 +34,10 @@ for image_no in xrange(1,NUM_IMAGES+1):
 
     im2 = np.array(im2.GetRasterBand(1).ReadAsArray())
 
-    image_r = Image.fromarray(im_r)
-    image_g = Image.fromarray(im_g)
-    image_b = Image.fromarray(im_b)
-    image_a = Image.fromarray(im_a)
+    image_r = Image.fromarray(im_r).convert("L")
+    image_g = Image.fromarray(im_g).convert("L")
+    image_b = Image.fromarray(im_b).convert("L")
+    image_a = Image.fromarray(im_a).convert("L")
     label = Image.fromarray(im2)
 
     source_w, source_h = len(im_r), len(im_r[0])
@@ -48,8 +50,8 @@ for image_no in xrange(1,NUM_IMAGES+1):
     print("Input image size: %sx%s" % (source_h, source_w))
     print("Label image size: %sx%s" % (label_h, label_w))
 
-    for i in xrange(0, source_w, out_w):
-        for j in xrange(0, source_h, out_h):
+    for i in range(0, source_w, out_w):
+        for j in range(0, source_h, out_h):
 
             #if k % 0 is 0:
             print("Exported %008d x1:%s y1:%s x2:%s, y2:%s\r" % (k, i, j, i+out_w, j+out_h), end="")
@@ -77,7 +79,6 @@ for image_no in xrange(1,NUM_IMAGES+1):
                 a.save("raw_images/IMG-A-%008d.png" % k)
 
                 label_img = label.crop((i, j, i+(out_h), j+(out_w)))
-                label_img.load()
                 label_img.save("raw_images/LBL-%008d.png" % k)
 
                 b = Image.merge("RGB", [r, g, b])
