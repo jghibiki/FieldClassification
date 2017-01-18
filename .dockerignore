@@ -1,2 +1,5 @@
 output/
+bad_data/
 *.tif
+*/**/*.tif
+images/

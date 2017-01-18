@@ -22,15 +22,18 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 1
+NUM_IMAGES = 5
 for image_no in range(1,NUM_IMAGES+1):
-    im = gdal.Open("input_%s.tif" % image_no)
-    im2 = gdal.Open("labels_%s.tif" % image_no)
+    blue = gdal.Open("images/%s_blue.tif" % image_no)
+    red = gdal.Open("images/%s_red.tif" % image_no)
+    green = gdal.Open("images/%s_green.tif" % image_no)
+    nir = gdal.Open("images/%s_nir.tif" % image_no)
+    im2 = gdal.Open("images/%s_label.tif" % image_no)
 
-    im_r = np.array(im.GetRasterBand(1).ReadAsArray())
-    im_g = np.array(im.GetRasterBand(2).ReadAsArray())
-    im_b = np.array(im.GetRasterBand(3).ReadAsArray())
-    im_a = np.array(im.GetRasterBand(4).ReadAsArray())
+    im_r = np.array(red.GetRasterBand(1).ReadAsArray())
+    im_g = np.array(green.GetRasterBand(1).ReadAsArray())
+    im_b = np.array(blue.GetRasterBand(1).ReadAsArray())
+    im_a = np.array(nir.GetRasterBand(1).ReadAsArray())
 
     im2 = np.array(im2.GetRasterBand(1).ReadAsArray())
 
@@ -50,8 +53,8 @@ for image_no in range(1,NUM_IMAGES+1):
     print("Input image size: %sx%s" % (source_h, source_w))
     print("Label image size: %sx%s" % (label_h, label_w))
 
-    for i in range(0, source_w, out_w):
-        for j in range(0, source_h, out_h):
+    for i in range(0, source_w, out_w/2):
+        for j in range(0, source_h, out_h/2):
 
             #if k % 0 is 0:
             print("Exported %008d x1:%s y1:%s x2:%s, y2:%s\r" % (k, i, j, i+out_w, j+out_h), end="")
