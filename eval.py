@@ -7,17 +7,78 @@ from model import ImageClassifier
 from datetime import datetime
 import inputs
 import csv
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
+from calculate_labels import lookup, unique
+
 
 tf.flags.DEFINE_boolean("save_projections", False, "Toggles saving projections")
 tf.flags.DEFINE_boolean("confusion_matrix", False, "Toggles building a confusion matrix")
 
 FLAGS = tf.app.flags.FLAGS
 
+names = [
+        "background",
+        "corn",
+        "Sorghum",
+        "Soybeans",
+        "Sunflower",
+        "Barley",
+        "Durum Wheat",
+        "Spring Wheat",
+        "Winter Wheat",
+        "Rye",
+        "Oats",
+        "Millet",
+        "Canola",
+        "Flaxseed",
+        "Alfalfa",
+        "Other Hay/Non Alfalfa",
+        "Buckwheat",
+        "Sugarbeets",
+        "Dry Beans",
+        "Potatoes",
+        "Other Crops",
+        "Peas",
+        "Fallow/Idle Cropland",
+        "Open Water",
+        "Developed/Open Space",
+        "Developed/Low Intensity",
+        "Developed/Med Intensity",
+        "Developed/High Intensity",
+        "Barren",
+        "Deciduous Forest",
+        "Evergreen Forest",
+        "Mixed Forest",
+        "Shrubland",
+        "Grass/Pasture",
+        "Woody Wetlands",
+        "Herbaceous Wetlands",
+        "Radishes"
+]
+
 # generate lookup tables
 np.random.seed(1)
 color_lut =range(256, 0, -1) * 3
+
 np.random.shuffle(color_lut)
+
+banded_lut = []
+
+for x in range(256):
+ banded_lut.append(( color_lut[x], color_lut[256+x], color_lut[(256*2)+x] ))
+
+
+font = ImageFont.load_default()
+txt = Image.new("RGB", (600,100), (255, 255, 255))
+draw = ImageDraw.Draw(txt)
+y = 0
+for color, label in zip(banded_lut, names):
+    print(color)
+    draw.text((0,y), label, font=font, fill=color)
+    y+= 10
+
+txt.save("classifications/legend.png")
+
 
 
 IMAGE_SIZE = 256
@@ -31,7 +92,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-2500")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-4000")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
@@ -64,7 +125,19 @@ def main(argv=None):
 
                 if FLAGS.confusion_matrix:
                     for actual, predicted in zip(label.flatten(), class_img.flatten()):
-                        conf_matrix[int(actual)][int(predicted)] += 1
+                        index_of_actual = lookup[ unique[ int(actual) ] ]
+                        index_of_predicted = lookup[ unique[ int(predicted) ] ]
+                        print("Actual", names[index_of_actual], "Predicted", names[index_of_predicted])
+                        conf_matrix[
+                            lookup[
+                                unique[
+                                    int(actual)
+                                ]
+                            ]][ lookup[
+                                unique[
+                                    int(predicted)
+                                ]
+                            ]] += 1
 
                 if FLAGS.save_projections:
                     emb.append(image_tensor)
@@ -75,13 +148,20 @@ def main(argv=None):
                 class_img = np.squeeze(np.asarray(class_img[0], np.uint8), 2)
                 class_img = Image.fromarray(class_img, "L")
 
+                predictions.shape = (IMAGE_SIZE, IMAGE_SIZE)
+                error_img = Image.fromarray(np.asarray(predictions, dtype=np.uint8) * 255)
+
+                label = label.convert(mode="RGB")
+                label = label.point(color_lut)
+
                 class_img = class_img.convert(mode="RGB")
                 #class_img = class_img.point(lambda i: i * 1.2 + 10)
                 class_img = class_img.point(color_lut)
 
+
                 overlay_img = Image.blend(image, class_img, 0.4)
 
-                images = [image, label, class_img, overlay_img]
+                images = [image, label, class_img, overlay_img, error_img]
                 widths, heights = zip(*(i.size for i in images))
 
                 total_width = sum(widths)
@@ -113,45 +193,6 @@ def main(argv=None):
             print("Done evaluating, completed in %d steps" % step)
 
         if FLAGS.save_projections:
-            names = [
-                    "background",
-                    "corn",
-                    "Sorghum",
-                    "Soybeans",
-                    "Sunflower",
-                    "Barley",
-                    "Durum Wheat",
-                    "Spring Wheat",
-                    "Winter Wheat",
-                    "Rye",
-                    "Oats",
-                    "Millet",
-                    "Canola",
-                    "Flaxseed",
-                    "Alfalfa",
-                    "Other Hay/Non Alfalfa",
-                    "Buckwheat",
-                    "Sugarbeets",
-                    "Dry Beans",
-                    "Potatoes",
-                    "Other Crops",
-                    "Peas",
-                    "Fallow/Idle Cropland",
-                    "Open Water",
-                    "Developed/Open Space",
-                    "Developed/Low Intensity",
-                    "Developed/Med Intensity",
-                    "Developed/High Intensity",
-                    "Barren",
-                    "Deciduous Forest",
-                    "Evergreen Forest",
-                    "Mixed Forest",
-                    "Shrubland",
-                    "Grass/Pasture",
-                    "Woody Wetlands",
-                    "Herbaceous Wetlands",
-                    "Radishes"
-            ]
 
             emb = np.array(image_tensor)
             print(emb.shape)

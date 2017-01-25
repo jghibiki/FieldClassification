@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 2894
+NUM_IMAGES = 6291
 IMAGE_SIZE = 256
 
 
@@ -23,6 +23,22 @@ def getImage(base, i):
     image_g = Image.open("%s/IMG-G-%08d.png" % (base, i))
     image_b = Image.open("%s/IMG-B-%08d.png" % (base, i))
     image_a = Image.open("%s/IMG-A-%08d.png" % (base, i))
+
+
+    #r = np.array(image_r, dtype=np.float32)
+    #a = np.array(image_a, dtype=np.float32)
+    #np.seterr(invalid='ignore')
+    #ndvi = (a-r)/(a+r)
+
+    ##ndvi = (ndvi + 1) * (2**15 - 1)
+    ##ndvi = ndvi.astype(np.uint8)
+
+
+    #print(r)
+    #print(a)
+    #print(ndvi)
+    #print(ndvi.shape)
+
     image = np.array([
         np.array(image_r)[..., np.newaxis],
         np.array(image_g)[..., np.newaxis],
@@ -37,7 +53,7 @@ def getLabel(base, i):
 
     labels = np.asarray(labels)
 
-    simplified_labels = [ [ calculate_labels.lookup[pixel] for pixel in y ] for y in labels ]
+    simplified_labels = [ [ calculate_labels.lookup[pixel] if pixel != 0 else 1 for pixel in y ] for y in labels ]
     simplified_labels = np.asarray(simplified_labels, np.uint8)
 
     return simplified_labels
