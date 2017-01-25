@@ -6,13 +6,19 @@ import signal
 import tensorflow as tf
 from PIL import Image
 import numpy as np
+import calculate_labels
 
+# set random seed
+np.random.seed(1)
 
-def getImage(i):
-    image_r = Image.open("raw_images/IMG-R-%08d.png" % i)
-    image_g = Image.open("raw_images/IMG-G-%08d.png" % i)
-    image_b = Image.open("raw_images/IMG-B-%08d.png" % i)
-    image_a = Image.open("raw_images/IMG-A-%08d.png" % i)
+NUM_IMAGES = 2894
+IMAGE_SIZE = 256
+
+def getImage(base, i):
+    image_r = Image.open("%s/IMG-R-%08d.png" % (base, i))
+    image_g = Image.open("%s/IMG-G-%08d.png" % (base, i))
+    image_b = Image.open("%s/IMG-B-%08d.png" % (base, i))
+    image_a = Image.open("%s/IMG-A-%08d.png" % (base, i))
     image = np.array([
         np.array(image_r)[..., np.newaxis],
         np.array(image_g)[..., np.newaxis],
@@ -22,14 +28,19 @@ def getImage(i):
     image = np.concatenate(image, axis=-1)
     return image
 
-def getLabel(i):
-    labels = Image.open("raw_images/LBL-%08d.png" % i)
+def getLabel(base, i):
+    labels = Image.open("%s/LBL-%08d.png" % (base, i))
 
-    return labels
+    labels = np.asarray(labels)
 
-def getExample(i):
-    image = getImage(i)
-    label = getLabel(i)
+    simplified_labels = [ [ calculate_labels.lookup[pixel] for pixel in y ] for y in labels ]
+    simplified_labels = np.asarray(simplified_labels, np.uint8)
+
+    return simplified_labels
+
+def getExample(base, i):
+    image = getImage(base, i)
+    label = getLabel(base, i)
     example = convert_to(image, label)
     return example
 
@@ -44,11 +55,11 @@ def convert_to(image, label):
     image = np.asarray(image)
     label = np.asarray(label)
 
-    if(not image.shape[0] is 128 or not image.shape[1] is 128):
+    if(not image.shape[0] is IMAGE_SIZE or not image.shape[1] is IMAGE_SIZE):
         print("bad image")
         print(image.shape)
         exit()
-    if(not label.shape[0] is 128 or not label.shape[1] is 128):
+    if(not label.shape[0] is IMAGE_SIZE or not label.shape[1] is IMAGE_SIZE):
         print("bad label")
         print(label.shape)
         exit()
@@ -66,6 +77,13 @@ def convert_to(image, label):
 
 if __name__ == '__main__':
 
+    image_list = np.arange(NUM_IMAGES)
+    np.random.shuffle(image_list)
+    test_size = int(image_list.shape[0]*0.1)
+    test = image_list[:test_size]
+    train = image_list[test_size:]
+
+    print("Calculated Partitions: train: {0}, test: {1}".format(train.shape[0], test.shape[0]))
 
     print("Exporting Training Data")
 
@@ -74,13 +92,33 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    for i in xrange(8963):
-        example = getExample(i)
+    for i in range(train.shape[0]):
+        print("\rConverting: %08d image #%08d" % (i, train[i]), end="")
+        sys.stdout.flush()
+
+        example = getExample("raw_images", i)
         writer.write(example.SerializeToString())
 
-        if i % 1 is 0:
-
-            print("\rCompleted: %08d" % (i), end="")
-            sys.stdout.flush()
+        print("\rCompleted: %08d" % (i), end="")
+        sys.stdout.flush()
+    writer.close()
     print()
 
+    print("Exporting Training Data")
+
+    filename = "data/test.tfrecord"
+    writer = tf.python_io.TFRecordWriter(filename)
+
+    start = datetime.now()
+
+    for i in range(test.shape[0]):
+        print("\rConverting: %08d image #%08d" % (i, test[i]), end="")
+        sys.stdout.flush()
+
+        example = getExample("raw_images", i)
+        writer.write(example.SerializeToString())
+
+        print("\rCompleted: %08d" % (i), end="")
+        sys.stdout.flush()
+    writer.close()
+    print()

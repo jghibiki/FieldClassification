@@ -1,3 +1,5 @@
 output/
-input.tiff
-output.tiff
+bad_data/
+*.tif
+*/**/*.tif
+images/
