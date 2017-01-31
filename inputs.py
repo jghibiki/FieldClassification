@@ -25,25 +25,18 @@ def getImage(base, i):
     image_a = Image.open("%s/IMG-A-%08d.png" % (base, i))
 
 
-    #r = np.array(image_r, dtype=np.float32)
-    #a = np.array(image_a, dtype=np.float32)
-    #np.seterr(invalid='ignore')
-    #ndvi = (a-r)/(a+r)
-
-    ##ndvi = (ndvi + 1) * (2**15 - 1)
-    ##ndvi = ndvi.astype(np.uint8)
-
-
-    #print(r)
-    #print(a)
-    #print(ndvi)
-    #print(ndvi.shape)
+    r = np.array(image_r, dtype=np.float32)
+    a = np.array(image_a, dtype=np.float32)
+    np.seterr(invalid='ignore')
+    ndvi = (a-r)/(a+r)
+    ndvi = np.nan_to_num(ndvi)
+    ndvi = np.ceil(ndvi * 255) #scale index
 
     image = np.array([
         np.array(image_r)[..., np.newaxis],
         np.array(image_g)[..., np.newaxis],
         np.array(image_b)[..., np.newaxis],
-        np.array(image_a)[..., np.newaxis]
+        np.array(ndvi)[..., np.newaxis]
     ])
     image = np.concatenate(image, axis=-1)
     return image

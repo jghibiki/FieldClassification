@@ -127,7 +127,7 @@ def main(argv=None):
                     for actual, predicted in zip(label.flatten(), class_img.flatten()):
                         index_of_actual = lookup[ unique[ int(actual) ] ]
                         index_of_predicted = lookup[ unique[ int(predicted) ] ]
-                        print("Actual", names[index_of_actual], "Predicted", names[index_of_predicted])
+                        #print("Actual", names[index_of_actual], "Predicted", names[index_of_predicted])
                         conf_matrix[
                             lookup[
                                 unique[
