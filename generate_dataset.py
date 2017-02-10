@@ -23,6 +23,7 @@ print()
 k = 0
 
 NUM_IMAGES = 5
+LABELS = set([ 1, 5, 23, 121, 141, 176, 195])
 for image_no in range(1,NUM_IMAGES+1):
     blue = gdal.Open("images/%s_blue.tif" % image_no)
     red = gdal.Open("images/%s_red.tif" % image_no)
@@ -47,7 +48,7 @@ for image_no in range(1,NUM_IMAGES+1):
     label_w, label_h = len(im2), len(im2[0])
 
 
-    out_w, out_h = 256, 256
+    out_w, out_h = 128, 128
     print("Image #%s" % image_no)
     print("Output image size: %sx%s" % (out_h, out_w))
     print("Input image size: %sx%s" % (source_h, source_w))
@@ -82,6 +83,12 @@ for image_no in range(1,NUM_IMAGES+1):
                 a.save("raw_images/IMG-A-%008d.png" % k)
 
                 label_img = label.crop((i, j, i+(out_h), j+(out_w)))
+                label_img = np.array(label_img)
+
+                label_img = [ [ x if x in LABELS else 0 for x in y ] for y in label_img ]
+
+                label_img = Image.fromarray(np.array(label_img, np.uint8)).convert("L")
+
                 label_img.save("raw_images/LBL-%008d.png" % k)
 
                 b = Image.merge("RGB", [r, g, b])

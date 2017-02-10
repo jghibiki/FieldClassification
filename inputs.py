@@ -3,8 +3,8 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 6291
-IMAGE_SIZE = 256
+NUM_IMAGES = 25007
+IMAGE_SIZE = 128
 
 
 def calculate_splits():
