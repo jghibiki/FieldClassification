@@ -14,6 +14,7 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (defua
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Checkpoint model after this many steps.")
 tf.flags.DEFINE_integer("summary_every", 50, "Save training summary after this many steps.")
 tf.flags.DEFINE_integer("report_every", 1, "Output the current steps training stats after this many steps.")
+tf.flags.DEFINE_integer("dev_every", 10, "Run the model against a batch of the dev set to track generalization.")
 
 tf.flags.DEFINE_string("output_dir", "output/", "The name of the directory to save checkpoints and summaries to.")
 tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the directory to save training summaries to")
@@ -32,13 +33,16 @@ def main(argv=None):
 
     #sess = tf.InteractiveSession()
     input_generator = inputs.train_pipeline(batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
+    dev_generator = inputs.dev_pipeline(batch_size=FLAGS.batch_size)
 
     classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size)
 
     sess = tf.Session()
 
     summary_dir = FLAGS.output_dir + FLAGS.summary_train_dir
-    train_writer = tf.train.SummaryWriter(summary_dir, sess.graph)
+    train_writer = tf.train.SummaryWriter(summary_dir + "/train", sess.graph)
+
+    dev_writer = tf.train.SummaryWriter(summary_dir + "/dev", sess.graph)
 
     coord = tf.train.Coordinator()
 
@@ -60,12 +64,20 @@ def main(argv=None):
                 print("Step %08d, Accuracy %.6f, Loss %.6f, Average Time %s/step, Elapsed Time %s%s" % (step, accuracy*100, loss, average, elapsed, ", Created Summary" if step %FLAGS.summary_every is 0 else ""))
                 sys.stdout.flush()
 
+            if step % FLAGS.dev_every is 0:
+                dev_batch = next(dev_generator)
+                accuracy, loss, summary = classifier_model.dev(sess, dev_batch)
+                dev_writer.add_summary(summary, step)
+                print("Step %08d, Dev Accuracy %.6f, Loss %.6f" % (step, accuracy*100, loss))
+
             if step % FLAGS.summary_every is 0:
                 train_writer.add_run_metadata(run_metadata, 'step%d' % step)
                 train_writer.add_summary(summary, step)
 
             if step % FLAGS.checkpoint_every is 0:
                 classifier_model.save(sess, global_step=step)
+
+
 
             step += 1
 

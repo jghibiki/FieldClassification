@@ -53,7 +53,7 @@ def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
 def batch_norm(x):
-    return tf.contrib.layers.batch_norm(x, is_training=True, center=False, updates_collections=None)
+    return tf.contrib.layers.batch_norm(x, is_training=True, center=False, updates_collections=None, fused=True)
 
 def max_pool_2x2(x):
     return tf.nn.max_pool_with_argmax(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -206,10 +206,12 @@ class ImageClassifier:
 
         with tf.device("/gpu:0"):
             if not eval:
+                logits = self.inference(self.x)
                 self.loss(
-                    self.inference(self.x),
+                    logits,
                     self.y
                 )
+                self.dev_evaluate(logits, self.y)
             else:
                 self.evaluate(self.x, self.y)
 
@@ -299,6 +301,20 @@ class ImageClassifier:
         # calculate predictions
         with tf.device("/cpu:0"):
             self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
+
+    def dev_evaluate(self, logits, labels):
+        self.image_tensor = logits
+
+        labels = tf.cast(labels, tf.int32)
+        #labels = tf.argmax(labels, 1)
+
+        logits = tf.reshape(logits, [-1, self.num_classes])
+        labels = tf.reshape(labels, [-1])
+
+        # calculate predictions
+        with tf.device("/cpu:0"):
+            self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
+
 
 
     def local_response_normalization_layer(self, x):
@@ -636,6 +652,15 @@ class ImageClassifier:
             options=self.run_options,
             run_metadata=self.run_metadata)
         return accuracy, loss, summary, self.run_metadata, emb
+
+    def dev(self, sess, batch):
+        summary, accuracy, loss, _ = sess.run([self.merged, self.accuracy, self.calculated_loss, self.top_k_op],
+                feed_dict={
+                    self.x: batch[0],
+                    self.y: batch[1],
+                    self.keep_prob: 1
+                });
+        return accuracy, loss, summary
 
     def evaluate_once(self, sess,batch):
         predictions, summary, image, label, class_img, img = sess.run([self.top_k_op, self.merged, self.image_image, self.label_image, self.class_image, self.image_tensor],

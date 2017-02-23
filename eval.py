@@ -133,40 +133,57 @@ def main(argv=None):
                     for x in range(0, IMAGE_SIZE):
 
                         above = False
-                        if( y > 5 ):
+                        if( y > 2 ):
                             above = class_img[y][x] == label[y-1][x]
                             above = above or class_img[y][x] == label[y-2][x]
-                            above = above or class_img[y][x] == label[y-3][x]
-                            above = above or class_img[y][x] == label[y-4][x]
-                            above = above or class_img[y][x] == label[y-5][x]
 
                         below = False
-                        if (y < IMAGE_SIZE-6):
+                        if (y < IMAGE_SIZE-2):
                             below = class_img[y][x] == label[y+1][x]
                             below = below or class_img[y][x] == label[y+2][x]
-                            below = below or class_img[y][x] == label[y+3][x]
-                            below = below or class_img[y][x] == label[y+4][x]
-                            below = below or class_img[y][x] == label[y+5][x]
 
                         left = False
-                        if (x > 5):
+                        if (x > 2):
                             left = class_img[y][x] == label[y][x-1]
                             left = left or class_img[y][x] == label[y][x-2]
-                            left = left or class_img[y][x] == label[y][x-3]
-                            left = left or class_img[y][x] == label[y][x-4]
-                            left = left or class_img[y][x] == label[y][x-5]
 
                         right = False
-                        if( x < IMAGE_SIZE-6):
+                        if( x < IMAGE_SIZE-2):
                             right = class_img[y][x] == label[y][x+1]
-                            right = right or class_img[y][x] == label[y][x+2]
-                            right = right or class_img[y][x] == label[y][x+3]
-                            right = right or class_img[y][x] == label[y][x+4]
-                            right = right or class_img[y][x] == label[y][x+5]
+                            right = below or class_img[y][x] == label[y][x+2]
+
+                        up_right = False
+                        if( x < IMAGE_SIZE-2 and y > 2):
+                            up_right = class_img[y][x] == label[y-1][x+1]
+                            up_right = up_right or class_img[y][x] == label[y-1][x+2]
+                            up_right = up_right or class_img[y][x] == label[y-2][x+1]
+                            up_right = up_right or class_img[y][x] == label[y-2][x+2]
+
+                        up_left= False
+                        if( x > 2 and y > 2):
+                            up_left = class_img[y][x] == label[y-1][x-1]
+                            up_left = up_left or class_img[y][x] == label[y-1][x-2]
+                            up_left = up_left or class_img[y][x] == label[y-2][x-1]
+                            up_left = up_left or class_img[y][x] == label[y-2][x-2]
+
+                        down_right= False
+                        if( x < IMAGE_SIZE-2 and y < IMAGE_SIZE-2):
+                            up_left = class_img[y][x] == label[y+1][x+1]
+                            up_left = up_left and class_img[y][x] == label[y+1][x+2]
+                            up_left = up_left and class_img[y][x] == label[y+2][x+1]
+                            up_left = up_left and class_img[y][x] == label[y+2][x+2]
+
+                        down_left = False
+                        if( x > 2 and y < IMAGE_SIZE-2):
+                            down_left = class_img[y][x] == label[y+1][x-1]
+                            down_left = down_left or class_img[y][x] == label[y+1][x-2]
+                            down_left = down_left or class_img[y][x] == label[y+2][x-1]
+                            down_left = down_left or class_img[y][x] == label[y+2][x-2]
+
 
                         at = class_img[y][x] == label[y][x]
 
-                        forgive_a.append((at or above or below or left or right ))
+                        forgive_a.append((at or above or below or left or right or up_right or up_left or down_right or down_left ))
 
 
                 a = np.sum(np.asarray(forgive_a, dtype=bool))

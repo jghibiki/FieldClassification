@@ -82,3 +82,22 @@ def test_pipeline():
 
         yield ([img], [lbl])
 
+
+def dev_pipeline(batch_size):
+    _, dev = calculate_splits()
+
+    while True:
+        for i in range(0, len(dev)-batch_size, batch_size):
+            img_batch = []
+            lbl_batch = []
+            for num in dev[i:i+batch_size]:
+
+                img = getImage("raw_images", num)
+                lbl = getLabel("raw_images", num)
+
+                img_batch.append(img)
+                lbl_batch.append(lbl)
+
+            yield (img_batch, lbl_batch)
+
+
