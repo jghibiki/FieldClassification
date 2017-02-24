@@ -22,18 +22,15 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 5
+NUM_IMAGES = 1
 for image_no in range(1,NUM_IMAGES+1):
-    blue = gdal.Open("images/%s_blue.tif" % image_no)
-    red = gdal.Open("images/%s_red.tif" % image_no)
-    green = gdal.Open("images/%s_green.tif" % image_no)
-    nir = gdal.Open("images/%s_nir.tif" % image_no)
+    im = gdal.Open("images/%s_image.tif" % image_no)
     im2 = gdal.Open("images/%s_label.tif" % image_no)
 
-    im_r = np.array(red.GetRasterBand(1).ReadAsArray())
-    im_g = np.array(green.GetRasterBand(1).ReadAsArray())
-    im_b = np.array(blue.GetRasterBand(1).ReadAsArray())
-    im_a = np.array(nir.GetRasterBand(1).ReadAsArray())
+    im_r = np.array(im.GetRasterBand(1).ReadAsArray())
+    im_g = np.array(im.GetRasterBand(2).ReadAsArray())
+    im_b = np.array(im.GetRasterBand(3).ReadAsArray())
+    im_a = np.array(im.GetRasterBand(4).ReadAsArray())
 
     im2 = np.array(im2.GetRasterBand(1).ReadAsArray())
 

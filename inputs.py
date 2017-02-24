@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 6291
+NUM_IMAGES = 1935
 IMAGE_SIZE = 256
 
 
