@@ -227,10 +227,10 @@ class ImageClassifier:
 	with tf.device("/cpu:0"):
 	    lrn = self.local_response_normalization_layer(x)
 
-	    self.image_image = tf.slice(lrn, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
+	    image = tf.slice(lrn, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
 	    tf.image_summary('lrn_input',
 		    # slice removes nir layer which is stored as alpha
-		    self.image_image,
+		    image,
 		    max_images=50)
 
         with tf.device("/gpu:0"):
