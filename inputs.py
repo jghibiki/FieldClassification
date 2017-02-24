@@ -46,8 +46,9 @@ def getLabel(base, i):
 
     labels = np.asarray(labels)
 
-    simplified_labels = [ [ calculate_labels.lookup[pixel] if pixel != 0 else 1 for pixel in y ] for y in labels ]
-    simplified_labels = np.asarray(simplified_labels, np.uint8)
+    simplified_labels = labels
+    #simplified_labels = [ [ calculate_labels.lookup[pixel] if pixel != 0 else 1 for pixel in y ] for y in labels ]
+    simplified_labels = [ [ 1 if pixel != 0 else 0 for pixel in y ] for y in labels ] # squashes all labels into 1 or 0
 
     return simplified_labels
 

@@ -15,8 +15,9 @@ for image_no in range(1,NUM_IMAGES):
 #unique = [0, 1]
 
 unique = sorted(set(labels))
+lookup = { value: key for key, value in enumerate(unique) }
 
 print("Labels Present: \n%s\nTotal: %s" % (unique, len(unique)))
+print(lookup)
 
-lookup = { value: key for key, value in enumerate(unique) }
 

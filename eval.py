@@ -82,7 +82,7 @@ txt.save("classifications/legend.png")
 
 
 IMAGE_SIZE = 128
-NUM_CLASSES = 8
+NUM_CLASSES = 2
 
 def main(argv=None):
 
@@ -92,7 +92,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-22000")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-2000")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
@@ -215,8 +215,9 @@ def main(argv=None):
 
 
                 overlay_img = Image.blend(image, class_img, 0.4)
+                lbl_overlay_img = Image.blend(image, label, 0.4)
 
-                images = [image, label, class_img, overlay_img, error_img, forgive_a]
+                images = [image, label, class_img, lbl_overlay_img, overlay_img, error_img, forgive_a]
                 widths, heights = zip(*(i.size for i in images))
 
                 total_width = sum(widths)

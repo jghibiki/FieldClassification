@@ -23,7 +23,7 @@ print()
 k = 0
 
 NUM_IMAGES = 5
-LABELS = set([ 1, 5, 23, 121, 141, 176, 195])
+LABELS = set([ 111 ])
 for image_no in range(1,NUM_IMAGES+1):
     blue = gdal.Open("images/%s_blue.tif" % image_no)
     red = gdal.Open("images/%s_red.tif" % image_no)

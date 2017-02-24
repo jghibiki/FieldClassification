@@ -20,7 +20,7 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 
 FLAGS = tf.app.flags.FLAGS
 
-NUM_CLASSES = 8
+NUM_CLASSES = 2
 IMAGE_SIZE = 128
 
 def main(argv=None):

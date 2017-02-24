@@ -298,6 +298,7 @@ class ImageClassifier:
 
         # calculate predictions
         with tf.device("/cpu:0"):
+            #self.top_k_op = tf.nn.top_k(logits, k=1, sorted=False)[1]
             self.top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
 
@@ -307,7 +308,7 @@ class ImageClassifier:
     def conv1_layer(self, x):
 
         with tf.variable_scope('conv1') as scope_conv:
-            W_conv1 = weight_variable([7, 7, 4, 64], "W_conv1")
+            W_conv1 = weight_variable([3, 3, 4, 64], "W_conv1")
             variable_summaries("W-conv1", W_conv1)
             b_conv1 = bias_variable([64])
             variable_summaries("b-conv1", b_conv1)
@@ -329,7 +330,7 @@ class ImageClassifier:
 
     def conv2_layer(self, h_pool1):
         with tf.variable_scope('conv2') as scope_conv:
-            W_conv2 = weight_variable([7, 7, 64, 64])
+            W_conv2 = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv2", W_conv2, )
             b_conv2 = bias_variable([64])
             variable_summaries("b-conv2", b_conv2)
@@ -351,7 +352,7 @@ class ImageClassifier:
 
     def conv3_layer(self, h_pool1):
         with tf.variable_scope('conv3') as scope_conv:
-            W_conv = weight_variable([7, 7, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv3", W_conv)
             b_conv = bias_variable([64])
             variable_summaries("b-conv3", b_conv)
@@ -372,7 +373,7 @@ class ImageClassifier:
 
     def conv4_layer(self, h_pool1):
         with tf.variable_scope('conv4') as scope_conv:
-            W_conv = weight_variable([7, 7, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv4", W_conv)
             b_conv = bias_variable([64])
             variable_summaries("b-conv4", b_conv)
@@ -402,7 +403,7 @@ class ImageClassifier:
 
     def conv_decode4_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode4') as scope_conv:
-            W_conv = weight_variable([7, 7, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv-decode4", W_conv)
             b_conv = bias_variable([64])
             variable_summaries("b-conv-decode4", b_conv)
@@ -433,7 +434,7 @@ class ImageClassifier:
 
     def conv_decode3_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode3') as scope_conv:
-            W_conv = weight_variable([7, 7, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv-decode3", W_conv)
             b_conv = bias_variable([64])
             variable_summaries("b-conv-decode3", b_conv)
@@ -463,7 +464,7 @@ class ImageClassifier:
 
     def conv_decode2_layer(self, h_deconv1):
         with tf.variable_scope('conv_decode2') as scope_conv:
-            W_conv = weight_variable([7, 7, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64])
             variable_summaries("W-conv-decode2", W_conv)
             b_conv = bias_variable([64])
             variable_summaries("b-conv-decode2", b_conv)
@@ -496,7 +497,7 @@ class ImageClassifier:
     def conv_decode1_layer(self, h_deconv2):
         with tf.variable_scope('conv-decode1') as scope_conv:
             with tf.variable_scope("variables"):
-                W_conv = weight_variable([5, 5, 64, 64])
+                W_conv = weight_variable([3, 3, 64, 64])
                 variable_summaries("W-conv-decode1", W_conv)
                 b_conv = bias_variable([64])
                 variable_summaries("b-conv-decode1", b_conv)
@@ -561,6 +562,12 @@ class ImageClassifier:
             tf.add_to_collection('losses', cross_entropy_mean)
 
             loss = tf.add_n(tf.get_collection('losses'), name="total_loss")
+
+            #ratio = 24.98 / (24.98+75.014)
+            #class_weight = tf.constant([1.0-ratio, ratio])
+
+            #loss = tf.mul(loss, class_weight)
+
 
             #logits = tf.reshape(logits, [-1, 255])
             #epsilon = tf.constant(value=1e-10)
