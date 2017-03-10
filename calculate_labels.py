@@ -5,7 +5,7 @@ from PIL import Image
 
 labels = []
 
-NUM_IMAGES = 1935
+NUM_IMAGES = 18406
 for image_no in range(1,NUM_IMAGES):
     im2 = Image.open("raw_images/LBL-%08d.png" % image_no)
     im2 = np.array(im2).flatten()
@@ -16,7 +16,8 @@ for image_no in range(1,NUM_IMAGES):
 
 unique = sorted(set(labels))
 
-print("Labels Present: \n%s\nTotal: %s" % (unique, len(unique)))
 
 lookup = { value: key for key, value in enumerate(unique) }
+print("Labels Present: \n%s\nTotal: %s" % (unique, len(unique)))
+print(lookup)
 

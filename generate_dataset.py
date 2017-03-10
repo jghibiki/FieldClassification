@@ -22,8 +22,9 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 1
-LABELS = set([ 1, 5, 23, 121, 141, 176, 195])
+NUM_IMAGES = 10
+LABELS = set(range(0, 255))
+#LABELS = set([ 1, 5, 6, 21, 22, 23, 31, 32, 37, 53, 111, 121, 176, 195 ])
 for image_no in range(1,NUM_IMAGES+1):
     im = gdal.Open("images/%s_image.tif" % image_no)
     im2 = gdal.Open("images/%s_label.tif" % image_no)
@@ -45,7 +46,7 @@ for image_no in range(1,NUM_IMAGES+1):
     label_w, label_h = len(im2), len(im2[0])
 
 
-    out_w, out_h = 128, 128
+    out_w, out_h = 256, 256
     print("Image #%s" % image_no)
     print("Output image size: %sx%s" % (out_h, out_w))
     print("Input image size: %sx%s" % (source_h, source_w))

@@ -69,7 +69,7 @@ for x in range(256):
 
 
 font = ImageFont.load_default()
-txt = Image.new("RGB", (600,100), (255, 255, 255))
+txt = Image.new("RGB", (100,600), (255, 255, 255))
 draw = ImageDraw.Draw(txt)
 y = 0
 for color, label in zip(banded_lut, names):
@@ -81,8 +81,8 @@ txt.save("classifications/legend.png")
 
 
 
-IMAGE_SIZE = 128
-NUM_CLASSES = 8
+IMAGE_SIZE = 256
+NUM_CLASSES = 15
 
 def main(argv=None):
 
@@ -92,7 +92,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-22000")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-3000")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
@@ -194,8 +194,13 @@ def main(argv=None):
                     imgs.append(class_img)
 
                 image = Image.fromarray(np.uint8(np.asarray(image[0])))
+
+                label = np.vectorize(lambda x: unique[int(x)])(label)
                 label.shape = [1, IMAGE_SIZE, IMAGE_SIZE]
                 label = Image.fromarray(np.uint8(np.asarray(label[0])))
+
+                class_img = np.vectorize(lambda x: unique[int(x)])(class_img.flatten())
+                class_img.shape = [IMAGE_SIZE, IMAGE_SIZE]
                 class_img = np.asarray(class_img, np.uint8)
                 class_img = Image.fromarray(class_img, "L")
 
