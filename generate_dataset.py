@@ -22,9 +22,17 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 10
+NUM_IMAGES = 1
 LABELS = set(range(0, 255))
 #LABELS = set([ 1, 5, 6, 21, 22, 23, 31, 32, 37, 53, 111, 121, 176, 195 ])
+
+FORESTRY = set([ 63, 64, 70, 71, 141, 142, 143, 152, 190 ])
+DEVELOPED = set([ 61, 82, 121, 122, 123, 124, 176 ])
+FIELD = set([ 1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 66, 67, 68, 69, 72, 74, 75, 76, 77 ])
+WATER = set([ 83, 84, 92, 111, 195 ])
+BARREN = set([ 131 ])
+BACKGROUND = set(range(0, 255)) - FORESTRY - DEVELOPED - FIELD - WATER - BARREN
+
 for image_no in range(1,NUM_IMAGES+1):
     im = gdal.Open("images/%s_image.tif" % image_no)
     im2 = gdal.Open("images/%s_label.tif" % image_no)
@@ -83,7 +91,23 @@ for image_no in range(1,NUM_IMAGES+1):
                 label_img = label.crop((i, j, i+(out_h), j+(out_w)))
                 label_img = np.array(label_img)
 
-                label_img = [ [ x if x in LABELS else 0 for x in y ] for y in label_img ]
+                def convert(x):
+                    if x in BACKGROUND:
+                        return 0
+                    elif x in FORESTRY:
+                        return 1
+                    elif x in DEVELOPED:
+                        return 2
+                    elif x in FIELD:
+                        return 3
+                    elif x in WATER:
+                        return 4
+                    elif x in BARREN:
+                        return 3
+
+                label_img = [ [ convert(x) for x in y ] for y in label_img ]
+
+                #label_img = [ [ x if x in LABELS else 0 for x in y ] for y in label_img ]
 
                 label_img = Image.fromarray(np.array(label_img, np.uint8)).convert("L")
 

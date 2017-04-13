@@ -1,7 +1,6 @@
 import numpy as np
 
-NUM_IMAGES = 18406
-IMAGE_SIZE = 128
+NUM_IMAGES = 1930
 
 np.random.seed(161) # just a randomly chosen number
 
@@ -14,3 +13,6 @@ train = image_list[test_size:]
 
 np.save("train", train)
 np.save("test", test)
+
+print("Train", len(train), train)
+print("Test", len(test), test)

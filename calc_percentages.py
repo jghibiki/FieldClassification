@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 
 bins = np.zeros(256)
-NUM_IMAGES = 18406
+NUM_IMAGES = 1935
 for image_no in range(1,NUM_IMAGES):
     im2 = Image.open("raw_images/LBL-%08d.png" % image_no)
     im2 = np.array(im2).flatten()
