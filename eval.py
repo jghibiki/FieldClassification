@@ -81,8 +81,8 @@ txt.save("classifications/legend.png")
 
 
 
-IMAGE_SIZE = 256
-NUM_CLASSES = 15
+IMAGE_SIZE = 512
+NUM_CLASSES = 9
 
 def main(argv=None):
 
@@ -92,7 +92,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-3000")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-4425")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
@@ -105,7 +105,7 @@ def main(argv=None):
         classifier_model.load(sess)
 
 
-        test_writer = tf.train.SummaryWriter("output/eval/", sess.graph)
+        test_writer = tf.summary.FileWriter("output/eval/", sess.graph)
 
         emb = []
         imgs = []

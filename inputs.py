@@ -3,8 +3,8 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 18406
-IMAGE_SIZE = 256
+NUM_IMAGES = 9201
+IMAGE_SIZE = 512
 
 np.random.seed(161) # just a randomly chosen number
 

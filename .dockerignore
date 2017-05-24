@@ -3,3 +3,10 @@ bad_data/
 *.tif
 */**/*.tif
 images/
+*.png
+classifications/
+unprocessed_inputs/
+raw_images/
+./*
+!*.py
+!*.npy

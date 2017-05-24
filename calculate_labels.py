@@ -5,7 +5,9 @@ from PIL import Image
 
 labels = []
 
-NUM_IMAGES = 1935
+NUM_IMAGES = 9201
+FORCE_NUM_LABELS = 9
+
 for image_no in range(1,NUM_IMAGES):
     im2 = Image.open("raw_images/LBL-%08d.png" % image_no)
     im2 = np.array(im2).flatten()
@@ -15,6 +17,11 @@ for image_no in range(1,NUM_IMAGES):
 #unique = [0, 1]
 
 unique = sorted(set(labels))
+
+counter = -1
+while len(unique) < FORCE_NUM_LABELS:
+    unique.append(counter)
+    counter -= 1
 
 
 lookup = { value: key for key, value in enumerate(unique) }

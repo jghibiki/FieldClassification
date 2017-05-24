@@ -1,6 +1,6 @@
 import numpy as np
 
-NUM_IMAGES = 1930
+NUM_IMAGES = 9201
 
 np.random.seed(161) # just a randomly chosen number
 

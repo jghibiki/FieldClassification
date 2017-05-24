@@ -3,3 +3,11 @@ output/
 data/
 raw_images/
 *.pyc
+*.png
+*.tif
+*.tiff
+*.zip
+*.shp
+*.obj
+
+unprocessed_images/**/
