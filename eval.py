@@ -69,7 +69,7 @@ for x in range(256):
 
 
 font = ImageFont.load_default()
-txt = Image.new("RGB", (600,100), (255, 255, 255))
+txt = Image.new("RGB", (100,600), (255, 255, 255))
 draw = ImageDraw.Draw(txt)
 y = 0
 for color, label in zip(banded_lut, names):
@@ -81,8 +81,8 @@ txt.save("classifications/legend.png")
 
 
 
-IMAGE_SIZE = 256
-NUM_CLASSES = 37
+IMAGE_SIZE = 512
+NUM_CLASSES = 9
 
 def main(argv=None):
 
@@ -92,7 +92,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-4000")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-4425")
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
@@ -105,7 +105,7 @@ def main(argv=None):
         classifier_model.load(sess)
 
 
-        test_writer = tf.train.SummaryWriter("output/eval/", sess.graph)
+        test_writer = tf.summary.FileWriter("output/eval/", sess.graph)
 
         emb = []
         imgs = []
@@ -116,12 +116,62 @@ def main(argv=None):
             step = 0
             correct = 0 # counts correct predictions
             total = 0 # counts total evaluated
+            forgive = 0
             start = datetime.now()
             for batch in input_generator:
 
                 predictions, summary, image, label, class_img, image_tensor = classifier_model.evaluate_once(sess, batch)
                 correct += np.sum(predictions)
                 total += len(predictions)
+
+                class_img.shape = [IMAGE_SIZE, IMAGE_SIZE]
+                label.shape = [IMAGE_SIZE, IMAGE_SIZE]
+
+                forgive_a = []
+
+                for y in range(0, IMAGE_SIZE):
+                    for x in range(0, IMAGE_SIZE):
+
+                        above = False
+                        if( y > 5 ):
+                            above = class_img[y][x] == label[y-1][x]
+                            above = above or class_img[y][x] == label[y-2][x]
+                            above = above or class_img[y][x] == label[y-3][x]
+                            above = above or class_img[y][x] == label[y-4][x]
+                            above = above or class_img[y][x] == label[y-5][x]
+
+                        below = False
+                        if (y < IMAGE_SIZE-6):
+                            below = class_img[y][x] == label[y+1][x]
+                            below = below or class_img[y][x] == label[y+2][x]
+                            below = below or class_img[y][x] == label[y+3][x]
+                            below = below or class_img[y][x] == label[y+4][x]
+                            below = below or class_img[y][x] == label[y+5][x]
+
+                        left = False
+                        if (x > 5):
+                            left = class_img[y][x] == label[y][x-1]
+                            left = left or class_img[y][x] == label[y][x-2]
+                            left = left or class_img[y][x] == label[y][x-3]
+                            left = left or class_img[y][x] == label[y][x-4]
+                            left = left or class_img[y][x] == label[y][x-5]
+
+                        right = False
+                        if( x < IMAGE_SIZE-6):
+                            right = class_img[y][x] == label[y][x+1]
+                            right = right or class_img[y][x] == label[y][x+2]
+                            right = right or class_img[y][x] == label[y][x+3]
+                            right = right or class_img[y][x] == label[y][x+4]
+                            right = right or class_img[y][x] == label[y][x+5]
+
+                        at = class_img[y][x] == label[y][x]
+
+                        forgive_a.append((at or above or below or left or right ))
+
+
+                a = np.sum(np.asarray(forgive_a, dtype=bool))
+                forgive += a
+
 
                 if FLAGS.confusion_matrix:
                     for actual, predicted in zip(label.flatten(), class_img.flatten()):
@@ -144,12 +194,22 @@ def main(argv=None):
                     imgs.append(class_img)
 
                 image = Image.fromarray(np.uint8(np.asarray(image[0])))
+
+                label = np.vectorize(lambda x: unique[int(x)])(label)
+                label.shape = [1, IMAGE_SIZE, IMAGE_SIZE]
                 label = Image.fromarray(np.uint8(np.asarray(label[0])))
-                class_img = np.squeeze(np.asarray(class_img[0], np.uint8), 2)
+
+                class_img = np.vectorize(lambda x: unique[int(x)])(class_img.flatten())
+                class_img.shape = [IMAGE_SIZE, IMAGE_SIZE]
+                class_img = np.asarray(class_img, np.uint8)
                 class_img = Image.fromarray(class_img, "L")
 
                 predictions.shape = (IMAGE_SIZE, IMAGE_SIZE)
                 error_img = Image.fromarray(np.asarray(predictions, dtype=np.uint8) * 255)
+
+                forgive_a = np.asarray(forgive_a)
+                forgive_a.shape = [IMAGE_SIZE, IMAGE_SIZE]
+                forgive_a = Image.fromarray(np.asarray(forgive_a, dtype=np.uint8) * 255)
 
                 label = label.convert(mode="RGB")
                 label = label.point(color_lut)
@@ -161,7 +221,7 @@ def main(argv=None):
 
                 overlay_img = Image.blend(image, class_img, 0.4)
 
-                images = [image, label, class_img, overlay_img, error_img]
+                images = [image, label, class_img, overlay_img, error_img, forgive_a]
                 widths, heights = zip(*(i.size for i in images))
 
                 total_width = sum(widths)
@@ -181,7 +241,8 @@ def main(argv=None):
                     now = datetime.now()
                     elapsed = now - start
                     average = elapsed / step if not step is 0 else 0
-                    print("Step %d, Evaluation Accuracy %g, Average Time %s/step, Elapsed Time %s" % (step, (correct/float(total)), average, elapsed))
+                    print("Step %d, Evaluation Accuracy %g, Acc #2 %g, Average Time %s/step, Elapsed Time %s" %
+                            (step, (correct/float(total)), (forgive/float(total)), average, elapsed))
                     sys.stdout.flush()
 
                 if step % 10 is 0:

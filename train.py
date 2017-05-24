@@ -20,8 +20,8 @@ tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the
 
 FLAGS = tf.app.flags.FLAGS
 
-NUM_CLASSES = 37
-IMAGE_SIZE = 256
+NUM_CLASSES = 9
+IMAGE_SIZE = 512
 
 def main(argv=None):
 
@@ -38,7 +38,7 @@ def main(argv=None):
     sess = tf.Session()
 
     summary_dir = FLAGS.output_dir + FLAGS.summary_train_dir
-    train_writer = tf.train.SummaryWriter(summary_dir, sess.graph)
+    train_writer = tf.summary.FileWriter(summary_dir, sess.graph)
 
     coord = tf.train.Coordinator()
 

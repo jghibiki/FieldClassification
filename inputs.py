@@ -3,17 +3,15 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 6291
-IMAGE_SIZE = 256
+NUM_IMAGES = 9201
+IMAGE_SIZE = 512
 
+np.random.seed(161) # just a randomly chosen number
 
-def calculate_splits():
+def load_splits():
 
-    image_list = np.arange(NUM_IMAGES)
-    np.random.shuffle(image_list)
-    test_size = int(image_list.shape[0]*0.1)
-    test = image_list[:test_size]
-    train = image_list[test_size:]
+    train = np.load("train.npy")
+    test = np.load("test.npy")
 
     return (train, test)
 
@@ -54,7 +52,7 @@ def getLabel(base, i):
 
 def train_pipeline(batch_size, num_epochs=1):
 
-    train, _ = calculate_splits()
+    train, _ = load_splits()
 
     for j in range(num_epochs):
         for i in range(0, len(train)-batch_size, batch_size):
@@ -73,12 +71,12 @@ def train_pipeline(batch_size, num_epochs=1):
 
 def test_pipeline():
 
-    _, test  = calculate_splits()
+    _, test  = load_splits()
 
-    for num in range(0, len(test)):
+    for i in range(0, len(test)):
 
-        img = getImage("raw_images", num)
-        lbl = getLabel("raw_images", num)
+        img = getImage("raw_images", test[i])
+        lbl = getLabel("raw_images", test[i])
 
         yield ([img], [lbl])
 
