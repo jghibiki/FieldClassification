@@ -185,6 +185,7 @@ class ImageClassifier:
         self.checkpoint_file = checkpoint_file
         self.eval = eval
         self.optimize_vars = []
+        self.argmax = {}
 
         with tf.device("/cpu:0"):
             with tf.variable_scope("inputs"):
@@ -233,44 +234,28 @@ class ImageClassifier:
 		    image,
 		    max_outputs=50)
 
+        num_layers = 5
+
         with tf.device("/gpu:0"):
-            with tf.variable_scope("encoder_1"):
-                conv1 = self.conv1_layer(lrn)
 
 
-            with tf.variable_scope("encoder_2"):
-                conv2 = self.conv2_layer(conv1)
+            lrn = tf.reshape(lrn, [self.batch_size, self.image_size, self.image_size, 4])
 
-            with tf.variable_scope("encoder_3"):
-                conv3 = self.conv3_layer(conv2)
+            previous_layer = lrn
+            for layer in range(num_layers):
+                print("Generating Convolutional Layer %s" % layer)
+                with tf.variable_scope("encoder_%s" % layer):
+                    num_channels = 64 if layer != 0 else 4
+                    previous_layer = self.conv_layer(layer, num_channels, previous_layer)
 
-            with tf.variable_scope("encoder_4"):
-                conv4 = self.conv4_layer(conv3)
 
-            with tf.variable_scope("encoder_5"):
-                conv5 = self.conv5_layer(conv4)
+            for layer in reversed(range(num_layers)):
+                with tf.variable_scope("decoder_%s" % layer):
+                    print("Generating Deconvolutional Layer %s" % layer)
+                    deconv = self.deconv_layer(layer, previous_layer)
+                    previous_layer = self.conv_decode_layer(layer, deconv)
 
-            with tf.variable_scope("decoder_5"):
-                deconv5 = self.deconv5_layer(conv5)
-                conv5_decode = self.conv_decode4_layer(deconv5)
-
-            with tf.variable_scope("decoder_4"):
-                deconv4 = self.deconv4_layer(conv5_decode)
-                conv4_decode = self.conv_decode4_layer(deconv4)
-
-            with tf.variable_scope("decoder_3"):
-                deconv3 = self.deconv3_layer(conv4_decode)
-                conv3_decode = self.conv_decode3_layer(deconv3)
-
-            with tf.variable_scope("decoder_2"):
-                deconv2 = self.deconv2_layer(conv3_decode)
-                conv2_decode = self.conv_decode2_layer(deconv2)
-
-            with tf.variable_scope("decoder_1"):
-                deconv1 = self.deconv1_layer(conv2_decode)
-                conv1_decode = self.conv_decode1_layer(deconv1)
-
-            conv_class = self.conv_class_layer(conv1_decode)
+            conv_class = self.conv_class_layer(previous_layer)
 
         return conv_class
 
@@ -311,148 +296,52 @@ class ImageClassifier:
     def local_response_normalization_layer(self, x):
         return tf.nn.local_response_normalization(x)
 
-    def conv1_layer(self, x):
-
-        with tf.variable_scope('conv1') as scope_conv:
-            W_conv1 = weight_variable([3, 3, 4, 64], "W_conv1")
-            variable_summaries("W-conv1", W_conv1)
-            b_conv1 = bias_variable([64])
-            variable_summaries("b-conv1", b_conv1)
-
-            tf.add_to_collection("loss_vars", W_conv1)
-            tf.add_to_collection("loss_vars", b_conv1)
-
-            x_image = tf.reshape(x, [self.batch_size, self.image_size, self.image_size, 4])
-
-            h_conv1 = conv2d(x_image, W_conv1) + b_conv1
-            h_batch_norm1 = batch_norm(h_conv1)
-            h_relu1 = tf.nn.relu(h_batch_norm1)
-            h_pool1, self.argmax1  = max_pool_2x2(h_relu1)
-
-            self.image_summary('conv1/filters', h_relu1)
-
-            return h_pool1
 
 
-    def conv2_layer(self, h_pool1):
-        with tf.variable_scope('conv2') as scope_conv:
-            W_conv2 = weight_variable([3, 3, 64, 64])
-            variable_summaries("W-conv2", W_conv2, )
-            b_conv2 = bias_variable([64])
-            variable_summaries("b-conv2", b_conv2)
+    def conv_layer(self, layer_no, input_channels, x):
 
-            tf.add_to_collection("loss_vars", W_conv2)
-            tf.add_to_collection("loss_vars", b_conv2)
-
-
-            h_conv2 = conv2d(h_pool1, W_conv2) + b_conv2
-            h_batch_norm2 = batch_norm(h_conv2)
-            h_relu2 = tf.nn.relu(h_batch_norm2)
-            h_pool2, self.argmax2 = max_pool_2x2(h_relu2)
-            h_dropout = tf.nn.dropout(h_pool2, self.keep_prob)
-
-            self.image_summary('conv2/filters', h_relu2)
-
-            return h_dropout
-
-
-    def conv3_layer(self, h_pool1):
-        with tf.variable_scope('conv3') as scope_conv:
-            W_conv = weight_variable([3, 3, 64, 64])
-            variable_summaries("W-conv3", W_conv)
+        with tf.variable_scope('conv%s' % layer_no) as scope_conv:
+            W_conv = weight_variable([3, 3, input_channels, 64], "W_conv%s" % layer_no)
+            variable_summaries("W-conv%s" % layer_no, W_conv)
             b_conv = bias_variable([64])
-            variable_summaries("b-conv3", b_conv)
+            variable_summaries("b-conv%s" % layer_no, b_conv)
 
             tf.add_to_collection("loss_vars", W_conv)
             tf.add_to_collection("loss_vars", b_conv)
 
-            h_conv = conv2d(h_pool1, W_conv) + b_conv
+            h_conv = conv2d(x, W_conv) + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
-            h_pool, self.argmax3 = max_pool_2x2(h_relu)
-            h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
+            h_pool, self.argmax[layer_no]  = max_pool_2x2(h_relu)
 
-            self.image_summary('conv3/filters', h_relu)
+            self.image_summary('conv1/filters', h_relu)
 
-            return h_dropout
+            return h_pool
 
 
-    def conv4_layer(self, h_pool1):
-        with tf.variable_scope('conv4') as scope_conv:
-            W_conv = weight_variable([3, 3, 64, 64])
-            variable_summaries("W-conv4", W_conv)
-            b_conv = bias_variable([64])
-            variable_summaries("b-conv4", b_conv)
-
-            tf.add_to_collection("loss_vars", W_conv)
-            tf.add_to_collection("loss_vars", b_conv)
-
-            h_conv = conv2d(h_pool1, W_conv) + b_conv
-            h_batch_norm = batch_norm(h_conv)
-            h_relu = tf.nn.relu(h_batch_norm)
-            h_pool, self.argmax4 = max_pool_2x2(h_relu)
-            h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
-
-            self.image_summary('conv4/filters', h_relu)
-
-            return h_dropout
-
-    def conv5_layer(self, h_pool1):
-        with tf.variable_scope('conv5') as scope_conv:
-            W_conv = weight_variable([3, 3, 64, 64])
-            variable_summaries("W-conv5", W_conv)
-            b_conv = bias_variable([64])
-            variable_summaries("b-conv4", b_conv)
-
-            tf.add_to_collection("loss_vars", W_conv)
-            tf.add_to_collection("loss_vars", b_conv)
-
-            h_conv = conv2d(h_pool1, W_conv) + b_conv
-            h_batch_norm = batch_norm(h_conv)
-            h_relu = tf.nn.relu(h_batch_norm)
-            h_pool, self.argmax5 = max_pool_2x2(h_relu)
-            h_dropout = tf.nn.dropout(h_pool, self.keep_prob)
-
-            self.image_summary('conv5/filters', h_relu)
-
-            return h_dropout
-
-    def deconv5_layer(self, h_pool2):
-        with tf.variable_scope('deconv5') as scope_conv:
-            #W_deconv = weight_variable([2, 2, 64, 64])
-            #variable_summaries("W-deconv5", W_deconv)
-
-            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax5)
-            self.image_summary('deconv5/filters', h_deconv)
+    def deconv_layer(self, layer_no,  h_pool):
+        with tf.variable_scope('deconv%s' % layer_no) as scope_conv:
+            h_deconv = unpool_layer2x2_batch(h_pool, self.argmax[layer_no])
+            self.image_summary('deconv%s/filters' % layer_no, h_deconv)
 
             return h_deconv
 
 
-    def deconv4_layer(self, h_pool2):
-        with tf.variable_scope('deconv4') as scope_conv:
-            #W_deconv = weight_variable([2, 2, 64, 64])
-            #variable_summaries("W-deconv4", W_deconv)
-
-            h_deconv = unpool_layer2x2_batch(h_pool2, self.argmax4)
-            self.image_summary('deconv4/filters', h_deconv)
-
-            return h_deconv
-
-    def conv_decode4_layer(self, h_deconv1):
-        with tf.variable_scope('conv_decode4') as scope_conv:
+    def conv_decode_layer(self, layer_no, h_deconv):
+        with tf.variable_scope('conv_decode%s' % layer_no) as scope_conv:
             W_conv = weight_variable([3, 3, 64, 64])
-            variable_summaries("W-conv-decode4", W_conv)
+            variable_summaries("W-conv-decode%s" % layer_no, W_conv)
             b_conv = bias_variable([64])
-            variable_summaries("b-conv-decode4", b_conv)
+            variable_summaries("b-conv-decode%s" % layer_no, b_conv)
 
             tf.add_to_collection("loss_vars", W_conv)
             tf.add_to_collection("loss_vars", b_conv)
 
-            h_conv = tf.nn.conv2d(h_deconv1, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
+            h_conv = tf.nn.conv2d(h_deconv, W_conv, [1, 1, 1, 1], padding="SAME") + b_conv
             h_batch_norm = batch_norm(h_conv)
             h_relu = tf.nn.relu(h_batch_norm)
             h_dropout = tf.nn.dropout(h_relu, self.keep_prob)
-            self.image_summary('conv-decode4/filters', h_relu)
+            self.image_summary('conv-decode%s/filters' % layer_no, h_relu)
 
             return h_dropout
 
