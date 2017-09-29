@@ -16,7 +16,7 @@ tf.flags.DEFINE_integer("summary_every", 50, "Save training summary after this m
 tf.flags.DEFINE_integer("report_every", 1, "Output the current steps training stats after this many steps.")
 
 tf.flags.DEFINE_string("output_dir", "output/", "The name of the directory to save checkpoints and summaries to.")
-tf.flags.DEFINE_string("summary_train_dir", "summaries/train/", "The name of the directory to save training summaries to")
+tf.flags.DEFINE_string("model_name", "model/", "The name of the directory to save training summaries to")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -33,11 +33,11 @@ def main(argv=None):
     #sess = tf.InteractiveSession()
     input_generator = inputs.train_pipeline(batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
 
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size)
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name )
 
     sess = tf.Session()
 
-    summary_dir = FLAGS.output_dir + FLAGS.summary_train_dir
+    summary_dir = FLAGS.output_dir + FLAGS.model_name
     train_writer = tf.summary.FileWriter(summary_dir, sess.graph)
 
     coord = tf.train.Coordinator()

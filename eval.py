@@ -11,6 +11,8 @@ from calculate_labels import lookup, unique
 
 
 tf.flags.DEFINE_boolean("confusion_matrix", False, "Toggles building a confusion matrix")
+tf.flags.DEFINE_string("output_dir", "output/", "The name of the directory to save checkpoints and summaries to.")
+tf.flags.DEFINE_string("model_name", "model/", "The name of the directory to save training summaries to")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -62,7 +64,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file="output/model.ckpt-1000-5000-2500-1000")
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file=FLAGS.output_dir + FLAGS.model_name)
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()
