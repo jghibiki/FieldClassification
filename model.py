@@ -14,11 +14,11 @@ def weight_variable(shape, name=None, initializer=None):
 
         initial = tf.truncated_normal_initializer(shape, stddev=0.1)
 
-    return tf.Variable(initial, name=name)
+    return tf.get_variable(name, initializer=initial)
 
 def weight_variavle_with_weight_decay(name, shape, initializer, wd):
 
-    var = tf.get_variable(name, shape, initializer=initializer)
+    var = tf.get_variable(name, initializer=initializer)
 
     if wd is not None:
         with tf.variable_scope("weigth_decay"):
@@ -38,7 +38,7 @@ def msra_initializer(kl, dl):
 
 def bias_variable(shape, name=None):
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial, name=name)
+    return tf.get_variable(name, initializer=initial)
 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
@@ -122,11 +122,14 @@ class ImageClassifier:
                     max_outputs=50)
 
         with tf.device("/gpu:0"):
+
+            segment = self.segmentation(self.x)
+
+            adv_seg = self.adversarial(segment, self.x, "seg", summary=True)
+            adv_labels = self.adversarial(self.y, self.x, "lbl")
+
             if not eval:
-                self.loss(
-                    self.inference(self.x),
-                    self.y
-                )
+                self.loss( inf, adv_seg, adv_labels )
             else:
                 self.evaluate(self.x, self.y)
 
@@ -138,7 +141,7 @@ class ImageClassifier:
         self.merged = tf.summary.merge_all()
 
 
-    def inference(self, x):
+    def segmentation(self, x):
 
 
 	with tf.device("/cpu:0"):
@@ -175,11 +178,125 @@ class ImageClassifier:
 
         return conv_class
 
-    def loss(self, logits, labels):
+
+    def adversarial(y, x, layer_name, summary=False):
+        with tf.variable_scope("adversarial_{0}".format(layer_name), reuse=True):
+
+            with tf.variable_scope('x_conv_0'):
+                W_conv = weight_variable([3, 3, input_channels, 64], "W_x_conv_0")
+                if summary: variable_summaries("W_x_conv_0")
+                b_conv = bias_variable([64])
+                if summary: variable_summaries("b_x_conv_0")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(x, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                x = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('x_conv_0/filters', x)
+
+            with tf.variable_scope('y_conv_0'):
+                W_conv = weight_variable([3, 3, 3, 64], "W_y_conv_0")
+                if summary: variable_summaries("W_y_conv_0")
+                b_conv = bias_variable([64])
+                if summary: variable_summaries("b_y_conv_0")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(y, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                y = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('y_conv_0/filters', y)
+
+            with tf.variable_scope("xy_concat"):
+
+                concat = tf.concat([x, y], 3)
+
+            with tf.variable_scope("xy_conv_0"):
+
+                W_conv = weight_variable([3, 3, 128, 128], "W_xy_conv_0")
+                if summary: variable_summaries("W_xy_conv_0")
+                b_conv = bias_variable([128])
+                if summary: variable_summaries("b_xy_conv_0")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(concat, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                xy_0 = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('xy_conv_0/filters', relu)
+
+
+            with tf.variable_scope("xy_conv_1"):
+
+                W_conv = weight_variable([3, 3, 128, 256], "W_xy_conv_1")
+                if summary: variable_summaries("W_xy_conv_1")
+                b_conv = bias_variable([256])
+                if summary: variable_summaries("b_xy_conv_1")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(xy_0, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                xy_1 = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('xy_conv_1/filters', xy_1)
+
+            with tf.variable_scope("xy_conv_2"):
+
+                W_conv = weight_variable([3, 3, 256, 512], "W_xy_conv_2")
+                if summary: variable_summaries("W_xy_conv_2")
+                b_conv = bias_variable([512])
+                if summary: variable_summaries("b_xy_conv_2")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(xy_1, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                xy_2 = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('xy_conv_2/filters', xy_2)
+
+            with tf.variable_scope("xy_conv_3"):
+
+                W_conv = weight_variable([3, 3, 512, 2], "W_xy_conv_3")
+                if summary: variable_summaries("W_xy_conv_3")
+                b_conv = bias_variable([2])
+                if summary: variable_summaries("b_xy_conv_3")
+
+                tf.add_to_collection("loss_vars", W_conv)
+                tf.add_to_collection("loss_vars", b_conv)
+
+                conv = conv2d(xy_2, W_conv) + b_conv
+                batch_norm = batch_norm(conv)
+                xy_3 = tf.nn.relu(batch_norm)
+
+                if summary: self.image_summary('xy_conv_3/filters', xy_3)
+
+            with tf.variable_scope("xy_softmax"):
+                xy_softmax = tf.nn.softmax(xy_3)
+                if summary: self.image_summary('xy_softmax/filters', xy_softmax)
+
+            return xy_softmax
+
+
+    def loss(self, seg_logits, seg_adv, seg_lbl, labels):
         labels = tf.reshape(labels, [self.batch_size, self.image_size * self.image_size])
 
-        logits, labels, loss = self.calculate_loss(logits, labels)
-        self.optimize_loss(loss)
+        logits, labels = self.calculate_loss(seg_logits, seg_adv, seg_lbl, labels)
+
+        with tf.variable_scope('Optimization') as scope_conv:
+            self.train_step = tf.train.AdamOptimizer(1e-4)
+            gradients_and_vars = self.train_step.compute_gradients(cross_entropy, var_list=tf.losses.get.total_loss())
+            self.train_step = self.train_step.apply_gradients(gradients_and_vars)
 
         with tf.name_scope("output"):
             prediction = self.predict(logits, labels)
@@ -188,8 +305,8 @@ class ImageClassifier:
 
     def evaluate(self, images, labels):
 
-        # build a graph that computes predictions from the inference model
-        logits = self.inference(images)
+        # build a graph that computes predictions from the segmentation model
+        logits = self.segmentation(images)
         self.image_tensor = logits
 
         img = tf.argmax(logits, 3)
@@ -389,49 +506,49 @@ class ImageClassifier:
         return self.emb
 
 
-    def calculate_loss(self, logits, labels):
+    def calculate_loss(self, seg_logits, adv_seg, adv_labels, labels):
         with tf.variable_scope('Loss') as scope_conv:
 
             logits = tf.reshape(logits, [-1, self.num_classes])
             labels = tf.reshape(labels, [-1])
 
+            # segmentation loss
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
                     logits=logits, labels=labels)
             cross_entropy_mean = tf.reduce_mean(cross_entropy)
             with tf.device("/cpu:0"):
-                tf.summary.scalar('loss', cross_entropy_mean)
+                tf.summary.scalar('segmentation_loss', cross_entropy_mean)
             self.calculated_loss = cross_entropy_mean
-            tf.add_to_collection('losses', cross_entropy_mean)
+            tf.losses.add_loss(cross_entropy_mean)
 
-            loss = tf.add_n(tf.get_collection('losses'), name="total_loss")
+            # adversarial loss
 
-            #logits = tf.reshape(logits, [-1, 255])
-            #epsilon = tf.constant(value=1e-10)
-            #logits  = logits + epsilon
-
-            #labels_flat = tf.reshape(labels, (-1, 1))
-
-            #labels = tf.reshape(tf.one_hot(labels_flat, depth=255), [-1, 255])
-
-            #softmax = tf.nn.softmax(logits)
-
-            #cross_entropy = - tf.reduce_sum((labels * tf.log(softmax + epsilon)), reduction_indices=[1])
-
-            #cross_entropy_mean = tf.reduce_mean(cross_entropy)
-            #self.calculated_loss = cross_entropy_mean
-
-            #tf.add_to_collection('losses', cross_entropy_mean)
-
-            #loss = tf.add_n(tf.get_collection('losses'))
-            #tf.scalar_summary('loss', loss)
-        return logits, labels, loss
+            def bce(output, target, epsilon=1e-8):
+                return tf.reduce_mean(tf.reduce_sum(-(target * tf.log(output + epsilon) + (1. - target) * tf.log(1. - output + epsilon)), axis=1))
 
 
-    def optimize_loss(self, cross_entropy):
-        with tf.variable_scope('Optimization') as scope_conv:
-            self.train_step = tf.train.AdamOptimizer(1e-4)
-            gradients_and_vars = self.train_step.compute_gradients(cross_entropy, var_list=tf.get_collection('loss_vars'))
-            self.train_step = self.train_step.apply_gradients(gradients_and_vars)
+            seg_target = tf.ones([self.batch_size])
+            adv_seg_loss = bce(adv_logits, seg_target)
+
+            with tf.device("/cpu:0"):
+                tf.summary.scalar("adversarial_segmentation_loss", adv_seg_loss)
+
+            lbl_target = tf.zeros([self.batch_size])
+            adv_lbl_loss = bce(adv_labels, lbl_target)
+
+            with tf.device("/cpu:0"):
+                tf.summary.scalar("adversarial_label_loss", adv_lbl_loss)
+
+            l = -1e-3
+            adv_loss = l * ( adv_seg_loss + adv_lbl_loss)
+            tf.losses.add_loss(summed_and_scaled)
+
+            with tf.device("/cpu:0"):
+                tf.summary.scalar("adversarial_loss", adv_loss)
+
+
+        return logits, labels
+
 
 
     def predict(self, y_conv, y):
