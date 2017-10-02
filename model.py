@@ -16,7 +16,7 @@ def weight_variable(shape, name=None, initializer=None):
 
     return tf.get_variable(name, initializer=initial)
 
-def weight_variavle_with_weight_decay(name, shape, initializer, wd):
+def weight_variable_with_weight_decay(name, initializer, wd):
 
     var = tf.get_variable(name, initializer=initializer)
 
@@ -29,12 +29,12 @@ def weight_variavle_with_weight_decay(name, shape, initializer, wd):
 
     return var
 
-def msra_initializer(kl, dl):
+def msra_initializer(shape, kl, dl):
     """
     kl for kernel size, dl for filter number
     """
     stddev = math.sqrt(2. / (kl**2 * dl))
-    return tf.truncated_normal_initializer(stddev=stddev)
+    return tf.truncated_normal(shape, stddev=stddev)
 
 def bias_variable(shape, name=None):
     initial = tf.constant(0.1, shape=shape)
@@ -126,10 +126,12 @@ class ImageClassifier:
             segment = self.segmentation(self.x)
 
             adv_seg = self.adversarial(segment, self.x, "seg", summary=True)
-            adv_labels = self.adversarial(self.y, self.x, "lbl")
+
+            y_one_hot = tf.one_hot(self.y, self.num_classes)
+            adv_labels = self.adversarial(y_one_hot, self.x, "lbl", reuse=True)
 
             if not eval:
-                self.loss( inf, adv_seg, adv_labels )
+                self.loss( segment, adv_seg, adv_labels, self.y )
             else:
                 self.evaluate(self.x, self.y)
 
@@ -179,36 +181,38 @@ class ImageClassifier:
         return conv_class
 
 
-    def adversarial(y, x, layer_name, summary=False):
-        with tf.variable_scope("adversarial_{0}".format(layer_name), reuse=True):
+    def adversarial(self, y, x, layer_name, summary=False, reuse=None):
+        with tf.variable_scope("adversarial", reuse=reuse):
 
             with tf.variable_scope('x_conv_0'):
-                W_conv = weight_variable([3, 3, input_channels, 64], "W_x_conv_0")
-                if summary: variable_summaries("W_x_conv_0")
-                b_conv = bias_variable([64])
-                if summary: variable_summaries("b_x_conv_0")
+                x = tf.cast(x, tf.float32)
+                W_conv = weight_variable([3, 3, 4, 64], "W_x_conv_0")
+                if summary: variable_summaries("W_x_conv_0", W_conv)
+                b_conv = bias_variable([64], "b_x_conv_0")
+                if summary: variable_summaries("b_x_conv_0", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(x, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                x = tf.nn.relu(batch_norm)
+                bn = batch_norm(conv)
+                x = tf.nn.relu(bn)
 
                 if summary: self.image_summary('x_conv_0/filters', x)
 
             with tf.variable_scope('y_conv_0'):
-                W_conv = weight_variable([3, 3, 3, 64], "W_y_conv_0")
-                if summary: variable_summaries("W_y_conv_0")
-                b_conv = bias_variable([64])
-                if summary: variable_summaries("b_y_conv_0")
+                y = tf.cast(y, tf.float32)
+                W_conv = weight_variable([3, 3, self.num_classes, 64], "W_y_conv_0")
+                if summary: variable_summaries("W_y_conv_0", W_conv)
+                b_conv = bias_variable([64], "b_y_conv_0")
+                if summary: variable_summaries("b_y_conv_0", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(y, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                y = tf.nn.relu(batch_norm)
+                bn = batch_norm(conv)
+                y = tf.nn.relu(bn)
 
                 if summary: self.image_summary('y_conv_0/filters', y)
 
@@ -219,65 +223,65 @@ class ImageClassifier:
             with tf.variable_scope("xy_conv_0"):
 
                 W_conv = weight_variable([3, 3, 128, 128], "W_xy_conv_0")
-                if summary: variable_summaries("W_xy_conv_0")
-                b_conv = bias_variable([128])
-                if summary: variable_summaries("b_xy_conv_0")
+                if summary: variable_summaries("W_xy_conv_0", W_conv)
+                b_conv = bias_variable([128], "b_xy_conv_0")
+                if summary: variable_summaries("b_xy_conv_0", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(concat, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                xy_0 = tf.nn.relu(batch_norm)
+                bn = batch_norm(conv)
+                xy_0 = tf.nn.relu(bn)
 
-                if summary: self.image_summary('xy_conv_0/filters', relu)
+                if summary: self.image_summary('xy_conv_0/filters', xy_0)
 
 
             with tf.variable_scope("xy_conv_1"):
 
                 W_conv = weight_variable([3, 3, 128, 256], "W_xy_conv_1")
-                if summary: variable_summaries("W_xy_conv_1")
-                b_conv = bias_variable([256])
-                if summary: variable_summaries("b_xy_conv_1")
+                if summary: variable_summaries("W_xy_conv_1", W_conv)
+                b_conv = bias_variable([256], "b_xy_conv_1")
+                if summary: variable_summaries("b_xy_conv_1", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(xy_0, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                xy_1 = tf.nn.relu(batch_norm)
+                bn = batch_norm(conv)
+                xy_1 = tf.nn.relu(bn)
 
                 if summary: self.image_summary('xy_conv_1/filters', xy_1)
 
             with tf.variable_scope("xy_conv_2"):
 
                 W_conv = weight_variable([3, 3, 256, 512], "W_xy_conv_2")
-                if summary: variable_summaries("W_xy_conv_2")
-                b_conv = bias_variable([512])
-                if summary: variable_summaries("b_xy_conv_2")
+                if summary: variable_summaries("W_xy_conv_2", W_conv)
+                b_conv = bias_variable([512], "b_xy_conv_2")
+                if summary: variable_summaries("b_xy_conv_2", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(xy_1, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                xy_2 = tf.nn.relu(batch_norm)
+                bn= batch_norm(conv)
+                xy_2 = tf.nn.relu(bn)
 
                 if summary: self.image_summary('xy_conv_2/filters', xy_2)
 
             with tf.variable_scope("xy_conv_3"):
 
                 W_conv = weight_variable([3, 3, 512, 2], "W_xy_conv_3")
-                if summary: variable_summaries("W_xy_conv_3")
-                b_conv = bias_variable([2])
-                if summary: variable_summaries("b_xy_conv_3")
+                if summary: variable_summaries("W_xy_conv_3", W_conv)
+                b_conv = bias_variable([2], "b_xy_conv_3")
+                if summary: variable_summaries("b_xy_conv_3", b_conv)
 
                 tf.add_to_collection("loss_vars", W_conv)
                 tf.add_to_collection("loss_vars", b_conv)
 
                 conv = conv2d(xy_2, W_conv) + b_conv
-                batch_norm = batch_norm(conv)
-                xy_3 = tf.nn.relu(batch_norm)
+                bn = batch_norm(conv)
+                xy_3 = tf.nn.relu(bn)
 
                 if summary: self.image_summary('xy_conv_3/filters', xy_3)
 
@@ -295,7 +299,7 @@ class ImageClassifier:
 
         with tf.variable_scope('Optimization') as scope_conv:
             self.train_step = tf.train.AdamOptimizer(1e-4)
-            gradients_and_vars = self.train_step.compute_gradients(cross_entropy, var_list=tf.losses.get.total_loss())
+            gradients_and_vars = self.train_step.compute_gradients(tf.losses.get_total_loss(), var_list=tf.get_collection("loss_vars"))
             self.train_step = self.train_step.apply_gradients(gradients_and_vars)
 
         with tf.name_scope("output"):
@@ -336,7 +340,7 @@ class ImageClassifier:
         with tf.variable_scope('conv%s' % layer_no) as scope_conv:
             W_conv = weight_variable([3, 3, input_channels, 64], "W_conv%s" % layer_no)
             variable_summaries("W-conv%s" % layer_no, W_conv)
-            b_conv = bias_variable([64])
+            b_conv = bias_variable([64], "b_conv%s" % layer_no)
             variable_summaries("b-conv%s" % layer_no, b_conv)
 
             tf.add_to_collection("loss_vars", W_conv)
@@ -362,9 +366,9 @@ class ImageClassifier:
 
     def conv_decode_layer(self, layer_no, h_deconv):
         with tf.variable_scope('conv_decode%s' % layer_no) as scope_conv:
-            W_conv = weight_variable([3, 3, 64, 64])
+            W_conv = weight_variable([3, 3, 64, 64], "W_conv_decode_%s" % layer_no)
             variable_summaries("W-conv-decode%s" % layer_no, W_conv)
-            b_conv = bias_variable([64])
+            b_conv = bias_variable([64], "b_conv_decode_%s" % layer_no)
             variable_summaries("b-conv-decode%s" % layer_no, b_conv)
 
             tf.add_to_collection("loss_vars", W_conv)
@@ -475,10 +479,9 @@ class ImageClassifier:
         with tf.variable_scope('conv-classification') as scope_conv:
 
             with tf.variable_scope("variables"):
-                W_conv_class = weight_variavle_with_weight_decay(
+                W_conv_class = weight_variable_with_weight_decay(
                     "W_conv_class",
-                    [1, 1, 64, self.num_classes],
-                    msra_initializer(1, 64),
+                    msra_initializer([1, 1, 64, self.num_classes], 1, 64),
                     0.0005)
                 variable_summaries("W-conv-classification", W_conv_class)
                 b_conv_class = bias_variable([self.num_classes], name="b_conv_class")
@@ -509,7 +512,7 @@ class ImageClassifier:
     def calculate_loss(self, seg_logits, adv_seg, adv_labels, labels):
         with tf.variable_scope('Loss') as scope_conv:
 
-            logits = tf.reshape(logits, [-1, self.num_classes])
+            logits = tf.reshape(seg_logits, [-1, self.num_classes])
             labels = tf.reshape(labels, [-1])
 
             # segmentation loss
@@ -527,13 +530,15 @@ class ImageClassifier:
                 return tf.reduce_mean(tf.reduce_sum(-(target * tf.log(output + epsilon) + (1. - target) * tf.log(1. - output + epsilon)), axis=1))
 
 
-            seg_target = tf.ones([self.batch_size])
-            adv_seg_loss = bce(adv_logits, seg_target)
+            seg_target = tf.ones([self.batch_size, self.image_size, self.image_size])
+            seg_target = tf.cast(tf.one_hot(tf.cast(seg_target, tf.int32), 2), tf.float32)
+            adv_seg_loss = bce(adv_seg, seg_target)
 
             with tf.device("/cpu:0"):
                 tf.summary.scalar("adversarial_segmentation_loss", adv_seg_loss)
 
-            lbl_target = tf.zeros([self.batch_size])
+            lbl_target = tf.zeros([self.batch_size, self.image_size, self.image_size])
+            lbl_target = tf.cast(tf.one_hot(tf.cast(lbl_target, tf.int32), 2), tf.float32)
             adv_lbl_loss = bce(adv_labels, lbl_target)
 
             with tf.device("/cpu:0"):
@@ -541,7 +546,7 @@ class ImageClassifier:
 
             l = -1e-3
             adv_loss = l * ( adv_seg_loss + adv_lbl_loss)
-            tf.losses.add_loss(summed_and_scaled)
+            tf.losses.add_loss(adv_loss)
 
             with tf.device("/cpu:0"):
                 tf.summary.scalar("adversarial_loss", adv_loss)

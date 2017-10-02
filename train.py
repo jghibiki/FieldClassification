@@ -33,7 +33,7 @@ def main(argv=None):
     #sess = tf.InteractiveSession()
     input_generator = inputs.train_pipeline(batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
 
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name )
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + FLAGS.model_name)
 
     sess = tf.Session()
 
