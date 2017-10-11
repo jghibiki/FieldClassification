@@ -99,6 +99,7 @@ class ImageClassifier:
         self.num_epochs = num_epochs
         self.dropout_rate = dropout_rate
         self.checkpoint_file = checkpoint_file
+        print(self.checkpoint_file)
         self.eval = eval
         self.optimize_vars = []
         self.argmax = {}
@@ -125,15 +126,16 @@ class ImageClassifier:
 
             segment = self.segmentation(self.x)
 
-            adv_seg = self.adversarial(segment, self.x, "seg", summary=True)
-
-            y_one_hot = tf.one_hot(self.y, self.num_classes)
-            adv_labels = self.adversarial(y_one_hot, self.x, "lbl", reuse=True)
-
             if not eval:
+
+                adv_seg = self.adversarial(segment, self.x, "seg", summary=True)
+
+                y_one_hot = tf.one_hot(self.y, self.num_classes)
+                adv_labels = self.adversarial(y_one_hot, self.x, "lbl", reuse=True)
+
                 self.loss( segment, adv_seg, adv_labels, self.y )
             else:
-                self.evaluate(self.x, self.y)
+                self.evaluate(segment, self.y)
 
         with tf.device("/cpu:0"):
             self.saver = tf.train.Saver()
@@ -307,10 +309,8 @@ class ImageClassifier:
             self.calculate_accuracy(prediction)
 
 
-    def evaluate(self, images, labels):
+    def evaluate(self, logits, labels):
 
-        # build a graph that computes predictions from the segmentation model
-        logits = self.segmentation(images)
         self.image_tensor = logits
 
         img = tf.argmax(logits, 3)
@@ -544,12 +544,13 @@ class ImageClassifier:
             with tf.device("/cpu:0"):
                 tf.summary.scalar("adversarial_label_loss", adv_lbl_loss)
 
-            l = -1e-3
+            l = -0.5e-3
             adv_loss = l * ( adv_seg_loss + adv_lbl_loss)
             tf.losses.add_loss(adv_loss)
 
             with tf.device("/cpu:0"):
                 tf.summary.scalar("adversarial_loss", adv_loss)
+                tf.summary.scalar("total_loss", tf.losses.get_total_loss())
 
 
         return logits, labels
@@ -614,7 +615,7 @@ class ImageClassifier:
 
     def load(self, sess):
 
-        self.saver.restore(sess, tf.train.latest_checkpoint(self.checkpoint_dir))
+        self.saver.restore(sess, tf.train.latest_checkpoint(self.checkpoint_file))
 
 
 

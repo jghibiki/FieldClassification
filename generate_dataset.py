@@ -72,7 +72,7 @@ for image_no in range(1,NUM_IMAGES+1):
     label_w, label_h = len(im2), len(im2[0])
 
 
-    out_w, out_h = 512, 512
+    out_w, out_h = 128, 128
     print("Image #%s" % image_no)
     print("Output image size: %sx%s" % (out_h, out_w))
     print("Input image size: %sx%s" % (source_h, source_w))

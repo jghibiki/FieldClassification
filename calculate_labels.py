@@ -5,7 +5,7 @@ from PIL import Image
 
 labels = []
 
-NUM_IMAGES = 9201
+NUM_IMAGES = 60965
 FORCE_NUM_LABELS = 9
 
 for image_no in range(1,NUM_IMAGES):
