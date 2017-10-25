@@ -2,7 +2,8 @@
 import numpy as np
 from PIL import Image
 
-NUM_IMAGES = 9201
+#NUM_IMAGES = 9201
+NUM_IMAGES = 10026
 
 bins = np.zeros(256)
 for image_no in range(1,NUM_IMAGES):

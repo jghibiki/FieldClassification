@@ -5,8 +5,9 @@ from PIL import Image
 
 labels = []
 
-NUM_IMAGES = 60965
-FORCE_NUM_LABELS = 9
+#NUM_IMAGES = 60965
+NUM_IMAGES = 10026
+FORCE_NUM_LABELS = 10
 
 for image_no in range(1,NUM_IMAGES):
     im2 = Image.open("raw_images/LBL-%08d.png" % image_no)

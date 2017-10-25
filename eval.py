@@ -65,7 +65,7 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" + FLAGS.model_name)
+    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" )
 
     #sess = tf.Session()
     sess = tf.InteractiveSession()

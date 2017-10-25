@@ -4,6 +4,7 @@ from PIL import Image
 import numpy as np
 import sys
 import csv
+import math
 
 sys.setrecursionlimit(10**6)
 
@@ -22,7 +23,8 @@ print("Exporting Image Data")
 print()
 k = 0
 
-NUM_IMAGES = 115
+#NUM_IMAGES = 115
+NUM_IMAGES = 1
 LABELS = set([
     11, 12, # open water
     21, 22, 23, 24, #developed
@@ -34,6 +36,26 @@ LABELS = set([
     90, 95 #wetlands
 ])
 
+LABEL_LOOKUP = {
+    0: [],
+    1: [11, 12], # open water
+    2: [21, 22, 23, 24], # developed
+    3: [31], #barren
+    4: [41, 42, 43], # forest
+    5: [51, 52], #shrubland
+    6: [71, 72, 73, 74], #herbacioues
+    7: [81], #pasture/hay
+    8: [82], #cultivated
+    9: [90, 95] #wetlands
+}
+
+NUM_LABELS = 10
+
+def convert_label(label):
+    for k, v in LABEL_LOOKUP.items():
+        if label in v:
+            return k
+    return 0
 
 
 for image_no in range(1,NUM_IMAGES+1):
@@ -113,7 +135,7 @@ for image_no in range(1,NUM_IMAGES+1):
                 label_img = np.array(label_img)
 
                 def convert(x):
-                    return (int(str(x)[0])/10.0)*255
+                    return math.floor( (convert_label(x)/float(NUM_LABELS)) * 255 )
 
                 vec_convert = np.vectorize(convert)
                 label_img = vec_convert(label_img)
