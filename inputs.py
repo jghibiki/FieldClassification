@@ -1,10 +1,9 @@
 import tensorflow as tf
 from PIL import Image
 import numpy as np
-import calculate_labels
 
-NUM_IMAGES = 60965
-IMAGE_SIZE = 128
+import calculate_labels
+import config
 
 np.random.seed(161) # just a randomly chosen number
 

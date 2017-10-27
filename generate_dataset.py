@@ -6,6 +6,8 @@ import sys
 import csv
 import math
 
+import config
+
 sys.setrecursionlimit(10**6)
 
 #lut = []
@@ -23,8 +25,6 @@ print("Exporting Image Data")
 print()
 k = 0
 
-#NUM_IMAGES = 115
-NUM_IMAGES = 1
 LABELS = set([
     11, 12, # open water
     21, 22, 23, 24, #developed
@@ -58,7 +58,7 @@ def convert_label(label):
     return 0
 
 
-for image_no in range(1,NUM_IMAGES+1):
+for image_no in range(1,config.BIG_IMAGES+1):
     #im = gdal.Open("images/%s_image.tif" % image_no)
     #im2 = gdal.Open("images/%s_label.tif" % image_no)
 

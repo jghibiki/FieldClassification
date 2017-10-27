@@ -1,15 +1,14 @@
 from __future__ import print_function
-import gdal
 import numpy as np
 from PIL import Image
 
+import config
+
 labels = []
 
-#NUM_IMAGES = 60965
-NUM_IMAGES = 10026
 FORCE_NUM_LABELS = 10
 
-for image_no in range(1,NUM_IMAGES):
+for image_no in range(1, config.NUM_IMAGES):
     im2 = Image.open("raw_images/LBL-%08d.png" % image_no)
     im2 = np.array(im2).flatten()
     #im2 = np.array(im2.GetRasterBand(1).ReadAsArray()).flatten()
@@ -20,7 +19,7 @@ for image_no in range(1,NUM_IMAGES):
 unique = sorted(set(labels))
 
 counter = -1
-while len(unique) < FORCE_NUM_LABELS:
+while len(unique) < config.NUM_CLASSES:
     unique.append(counter)
     counter -= 1
 

@@ -2,10 +2,12 @@ from __future__ import print_function
 import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
 import sys
-from model import ImageClassifier
 from datetime import datetime
-import inputs
 import numpy as np
+
+from model import ImageClassifier
+import inputs
+import config
 
 tf.flags.DEFINE_integer("batch_size", 1, "The batch size to use while training (default: 1).")
 tf.flags.DEFINE_integer("num_epochs", 5, "The number of epochs to train for (default:5).")
@@ -18,10 +20,10 @@ tf.flags.DEFINE_integer("report_every", 1, "Output the current steps training st
 tf.flags.DEFINE_string("output_dir", "output/", "The name of the directory to save checkpoints and summaries to.")
 tf.flags.DEFINE_string("model_name", "model/", "The name of the directory to save training summaries to")
 
+tf.flags.DEFINE_string("model_type", None, "The name of the model to use. Availiable models: cnn, adv")
+
 FLAGS = tf.app.flags.FLAGS
 
-NUM_CLASSES = 9
-IMAGE_SIZE = 128
 
 def main(argv=None):
 
@@ -33,7 +35,17 @@ def main(argv=None):
     #sess = tf.InteractiveSession()
     input_generator = inputs.train_pipeline(batch_size=FLAGS.batch_size, num_epochs=FLAGS.num_epochs)
 
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" + FLAGS.model_name)
+    classifier_model = None
+
+    if FLAGS.model_type == "cnn":
+        from cnn_classifier import ImageClassifier
+        classifier_model = ImageClassifier(config.NUM_CLASSES, config.IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" + FLAGS.model_name)
+    elif FLAGS.model_type == "adv":
+        from adversarial_classifier import ImageClassifier
+        classifier_model = ImageClassifier(config.NUM_CLASSES, config.IMAGE_SIZE, batch_size=FLAGS.batch_size, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" + FLAGS.model_name)
+    else:
+        raise Exception("--model_type parameter required.")
+
 
     sess = tf.Session()
 

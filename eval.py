@@ -1,19 +1,30 @@
 from __future__ import print_function
-import tensorflow as tf
-import numpy as np
-import sys
-from model import ImageClassifier
+
+import sys, os
 from datetime import datetime
 import inputs
 import csv
+import itertools
+
+import tensorflow as tf
+import numpy as np
 from PIL import Image, ImageFont, ImageDraw
+
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
 from calculate_labels import lookup, unique
+import config
 
 
 tf.flags.DEFINE_boolean("confusion_matrix", False, "Toggles building a confusion matrix")
 
 tf.flags.DEFINE_string("output_dir", "output/", "The name of the directory to save checkpoints and summaries to.")
 tf.flags.DEFINE_string("model_name", "model/", "The name of the directory to save training summaries to")
+
+tf.flags.DEFINE_string("model_type", None, "The name of the model to use. Availiable models: cnn, adv")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -54,9 +65,6 @@ txt.save("classifications/legend.png")
 
 
 
-IMAGE_SIZE = 128
-NUM_CLASSES = 9
-
 def main(argv=None):
 
     print("Parameters:")
@@ -65,10 +73,21 @@ def main(argv=None):
     print()
 
     input_generator = inputs.test_pipeline()
-    classifier_model = ImageClassifier(NUM_CLASSES, IMAGE_SIZE, batch_size=1, eval=True, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/" )
 
-    #sess = tf.Session()
-    sess = tf.InteractiveSession()
+    if FLAGS.model_type == "cnn":
+        from cnn_classifier import ImageClassifier
+        classifier_model = ImageClassifier(config.NUM_CLASSES, config.IMAGE_SIZE, batch_size=1, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/", eval=True )
+    elif FLAGS.model_type == "adv":
+        from adversarial_classifier import ImageClassifier
+        classifier_model = ImageClassifier(config.NUM_CLASSES, config.IMAGE_SIZE, batch_size=1, checkpoint_file=FLAGS.output_dir + FLAGS.model_name + "/", eval=True )
+    else:
+        raise Exception("--model_type parameter required.")
+
+    sess = tf.Session()
+    #sess = tf.InteractiveSession()
+
+    conf_actual = []
+    conf_predicted = []
 
 
     with sess.as_default():
@@ -78,16 +97,16 @@ def main(argv=None):
         classifier_model.load(sess)
 
 
-        test_writer = tf.summary.FileWriter("output/eval/", sess.graph)
+        test_writer = tf.summary.FileWriter(FLAGS.output_dir + FLAGS.model_name + "/eval/", sess.graph)
 
         emb = []
         imgs = []
 
-        conf_matrix = [ [ 0 for x in range(NUM_CLASSES) ] for y in range(NUM_CLASSES) ]
+        conf_matrix = [ [ 0 for x in range(config.NUM_CLASSES) ] for y in range(config.NUM_CLASSES) ]
 
         total_pixels = 0
-        per_class_accuracy = [ 0 for i in range(NUM_CLASSES) ]
-        per_class_count = [ 0 for i in range(NUM_CLASSES) ]
+        per_class_accuracy = [ 0 for i in range(config.NUM_CLASSES) ]
+        per_class_count = [ 0 for i in range(config.NUM_CLASSES) ]
 
         try:
             step = 0
@@ -100,8 +119,8 @@ def main(argv=None):
                 correct += np.sum(predictions)
                 total += len(predictions)
 
-                class_img.shape = [IMAGE_SIZE, IMAGE_SIZE]
-                label.shape = [IMAGE_SIZE, IMAGE_SIZE]
+                class_img.shape = [config.IMAGE_SIZE, config.IMAGE_SIZE]
+                label.shape = [config.IMAGE_SIZE, config.IMAGE_SIZE]
 
                 # calculate class-wise accuracies
                 for actual, predicted in zip(label.flatten(), class_img.flatten()):
@@ -118,33 +137,23 @@ def main(argv=None):
 
 
                 # generate confusion matrix
-                for actual, predicted in zip(label.flatten(), class_img.flatten()):
-                    index_of_actual = lookup[ unique[ int(actual) ] ]
-                    index_of_predicted = lookup[ unique[ int(predicted) ] ]
-                    #print("Actual", names[index_of_actual], "Predicted", names[index_of_predicted])
-                    conf_matrix[
-                        lookup[
-                            unique[
-                                int(actual)
-                            ]
-                        ]][ lookup[
-                            unique[
-                                int(predicted)
-                            ]
-                        ]] += 1
+                if step % 100 == 0:
+                    conf_predicted = conf_predicted + list(label.flatten())
+                    conf_actual = conf_actual + list(class_img.flatten())
+
 
                 image = Image.fromarray(np.uint8(np.asarray(image[0])))
 
                 label = np.vectorize(lambda x: unique[int(x)])(label)
-                label.shape = [1, IMAGE_SIZE, IMAGE_SIZE]
+                label.shape = [1, config.IMAGE_SIZE, config.IMAGE_SIZE]
                 label = Image.fromarray(np.uint8(np.asarray(label[0])))
 
                 class_img = np.vectorize(lambda x: unique[int(x)])(class_img.flatten())
-                class_img.shape = [IMAGE_SIZE, IMAGE_SIZE]
+                class_img.shape = [config.IMAGE_SIZE, config.IMAGE_SIZE]
                 class_img = np.asarray(class_img, np.uint8)
                 class_img = Image.fromarray(class_img, "L")
 
-                predictions.shape = (IMAGE_SIZE, IMAGE_SIZE)
+                predictions.shape = (config.IMAGE_SIZE, config.IMAGE_SIZE)
                 error_img = Image.fromarray(np.asarray(predictions, dtype=np.uint8) * 255)
 
                 label = label.convert(mode="RGB")
@@ -170,7 +179,11 @@ def main(argv=None):
                   new_im.paste(im, (x_offset,0))
                   x_offset += im.size[0]
 
-                new_im.save('classifications/%s.png' % step)
+                # make dir if it doesn't exist
+                if not os.path.exists(FLAGS.output_dir + FLAGS.model_name + '/classifications/'):
+                    os.makedirs(FLAGS.output_dir + FLAGS.model_name + '/classifications/')
+
+                new_im.save(FLAGS.output_dir + FLAGS.model_name + '/classifications/%s.png' % step)
 
                 if step % 10 is 0:
 
@@ -195,12 +208,59 @@ def main(argv=None):
         print("Per class pixel counts:")
         print(" ".join([ str(b) for b in per_class_count ]))
 
+        cnf_matrix = confusion_matrix(conf_actual, conf_predicted)
+        np.set_printoptions(precision=2)
 
-        if FLAGS.confusion_matrix:
-            with open("confusion_matrix.csv", "wb") as f:
-                writer = csv.writer(f)
-                for row in conf_matrix:
-                    writer.writerow(row)
+        def plot_confusion_matrix(cm, classes,
+                  normalize=False,
+                  title='Confusion matrix',
+                  cmap=plt.cm.Blues):
+            """
+            This function prints and plots the confusion matrix.
+            Normalization can be applied by setting `normalize=True`.
+            """
+            if normalize:
+                cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+                print("Normalized confusion matrix")
+            else:
+                print('Confusion matrix, without normalization')
+
+            print(cm)
+
+            plt.imshow(cm, interpolation='nearest', cmap=cmap)
+            plt.title(title)
+            plt.colorbar()
+            tick_marks = np.arange(len(classes))
+            plt.xticks(tick_marks, classes, rotation=45)
+            plt.yticks(tick_marks, classes)
+
+            fmt = '.2f' if normalize else 'd'
+            thresh = cm.max() / 2.
+            for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+                plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+            plt.tight_layout()
+            plt.ylabel('True label')
+            plt.xlabel('Predicted label')
+
+        plt.figure()
+        plot_confusion_matrix(cnf_matrix, classes=
+            ["unlabeled",
+             "developed",
+             "barren",
+             "forest",
+             "shrubland",
+             "herbacous",
+             "pasture/hay",
+             "wetlands"],
+              normalize=True,
+              title='Normalized confusion matrix')
+
+
+        plt.savefig(FLAGS.output_dir + FLAGS.model_name + "/classifications/conf_matrix.png")
+
 
 
 if __name__ == "__main__":

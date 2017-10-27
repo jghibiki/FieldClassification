@@ -1,12 +1,12 @@
 import numpy as np
 
-#NUM_IMAGES = 60965
-NUM_IMAGES = 10026
+import config
+
 
 np.random.seed(161) # just a randomly chosen number
 
 
-image_list = np.arange(NUM_IMAGES)
+image_list = np.arange(config.NUM_IMAGES)
 np.random.shuffle(image_list)
 test_size = int(image_list.shape[0]*0.1)
 test = image_list[:test_size]
