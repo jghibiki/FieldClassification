@@ -461,8 +461,9 @@ class ImageClassifier:
             with tf.device("/cpu:0"):
                 tf.summary.scalar("adversarial_label_loss", adv_lbl_loss)
 
-            l = -0.5e-3
-            adv_loss = l * ( adv_seg_loss + adv_lbl_loss)
+            l = -0.5e-1
+            shift = 5
+            adv_loss = l * ( adv_seg_loss + adv_lbl_loss) + shift
             tf.losses.add_loss(adv_loss)
 
             with tf.device("/cpu:0"):

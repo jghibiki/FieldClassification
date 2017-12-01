@@ -86,8 +86,10 @@ def main(argv=None):
     sess = tf.Session()
     #sess = tf.InteractiveSession()
 
-    conf_actual = []
-    conf_predicted = []
+    a = [  [ x,y ] for x in range(config.NUM_CLASSES)  for y in range(config.NUM_CLASSES) ]
+
+    conf_actual =  [ _[0] for _ in a ]
+    conf_predicted = [ _[1] for _ in a ]
 
 
     with sess.as_default():
@@ -245,7 +247,7 @@ def main(argv=None):
             plt.ylabel('True label')
             plt.xlabel('Predicted label')
 
-        plt.figure()
+        plt.figure(figsize=(20, 20))
         plot_confusion_matrix(cnf_matrix, classes=
             ["unlabeled",
              "developed",
@@ -255,7 +257,7 @@ def main(argv=None):
              "herbacous",
              "pasture/hay",
              "wetlands"],
-              normalize=True,
+              #normalize=True,
               title='Normalized confusion matrix')
 
 
