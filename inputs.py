@@ -3,8 +3,8 @@ from PIL import Image
 import numpy as np
 import calculate_labels
 
-NUM_IMAGES = 9201
-IMAGE_SIZE = 512
+NUM_IMAGES = 9129
+IMAGE_SIZE = 320
 
 np.random.seed(161) # just a randomly chosen number
 
@@ -20,11 +20,10 @@ def getImage(base, i):
     image_r = Image.open("%s/IMG-R-%08d.png" % (base, i))
     image_g = Image.open("%s/IMG-G-%08d.png" % (base, i))
     image_b = Image.open("%s/IMG-B-%08d.png" % (base, i))
-    image_a = Image.open("%s/IMG-A-%08d.png" % (base, i))
 
 
     r = np.array(image_r, dtype=np.float32)
-    a = np.array(image_a, dtype=np.float32)
+    a = np.zeros_like(r)
     np.seterr(invalid='ignore')
     ndvi = (a-r)/(a+r)
     ndvi = np.nan_to_num(ndvi)

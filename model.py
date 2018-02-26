@@ -5,15 +5,6 @@ from tensorflow.python.ops import gen_nn_ops
 import math
 import os
 
-@ops.RegisterGradient("MaxPoolWithArgmax")
-def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
-  return gen_nn_ops._max_pool_grad_with_argmax(op.inputs[0],
-                                               grad,
-                                               op.outputs[1],
-                                               op.get_attr("ksize"),
-                                               op.get_attr("strides"),
-                                               padding=op.get_attr("padding"))
-
 def weight_variable(shape, name=None, initializer=None):
     if not initializer:
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -110,11 +101,11 @@ def unravel_argmax(argmax, shape):
 #def unpool_layer2x2_batch(x, argmax, out_shape):
 #    '''
 #    Args:
-#	x: 4D tensor of shape [batch_size x height x width x channels]
-#	argmax: A Tensor of type Targmax. 4-D. The flattened indices of the max
-#	values chosen for each output.
+#    x: 4D tensor of shape [batch_size x height x width x channels]
+#    argmax: A Tensor of type Targmax. 4-D. The flattened indices of the max
+#    values chosen for each output.
 #    Return:
-#	4D output tensor of shape [batch_size x 2*height x 2*width x channels]
+#    4D output tensor of shape [batch_size x 2*height x 2*width x channels]
 #    '''
 #    with tf.variable_scope("unpool_layer2x2"):
 #        with tf.device("/cpu:0"):
@@ -156,23 +147,23 @@ def unravel_argmax(argmax, shape):
 
 def unpool_layer2x2_batch(updates, mask, ksize=[1, 2, 2, 1]):
     with tf.device("/cpu:0"):
-	input_shape = updates.get_shape().as_list()
-	#  calculation new shape
-	output_shape = (input_shape[0], input_shape[1] * ksize[1], input_shape[2] * ksize[2], input_shape[3])
-	# calculation indices for batch, height, width and feature maps
-	one_like_mask = tf.ones_like(mask)
-	batch_range = tf.reshape(tf.range(output_shape[0], dtype=tf.int64), shape=[input_shape[0], 1, 1, 1])
-	b = one_like_mask * batch_range
-	y = mask // (output_shape[2] * output_shape[3])
-	x = mask % (output_shape[2] * output_shape[3]) // output_shape[3]
-	feature_range = tf.range(output_shape[3], dtype=tf.int64)
-	f = one_like_mask * feature_range
-	# transpose indices & reshape update values to one dimension
-	updates_size = tf.size(updates)
-	indices = tf.transpose(tf.reshape(tf.stack([b, y, x, f]), [4, updates_size]))
-	values = tf.reshape(updates, [updates_size])
-	ret = tf.scatter_nd(indices, values, output_shape)
-	return ret
+        input_shape = updates.get_shape().as_list()
+        #  calculation new shape
+        output_shape = (input_shape[0], input_shape[1] * ksize[1], input_shape[2] * ksize[2], input_shape[3])
+        # calculation indices for batch, height, width and feature maps
+        one_like_mask = tf.ones_like(mask)
+        batch_range = tf.reshape(tf.range(output_shape[0], dtype=tf.int64), shape=[input_shape[0], 1, 1, 1])
+        b = one_like_mask * batch_range
+        y = mask // (output_shape[2] * output_shape[3])
+        x = mask % (output_shape[2] * output_shape[3]) // output_shape[3]
+        feature_range = tf.range(output_shape[3], dtype=tf.int64)
+        f = one_like_mask * feature_range
+        # transpose indices & reshape update values to one dimension
+        updates_size = tf.size(updates)
+        indices = tf.transpose(tf.reshape(tf.stack([b, y, x, f]), [4, updates_size]))
+        values = tf.reshape(updates, [updates_size])
+        ret = tf.scatter_nd(indices, values, output_shape)
+        return ret
 
 class ImageClassifier:
 
@@ -225,39 +216,39 @@ class ImageClassifier:
     def inference(self, x):
 
 
-	with tf.device("/cpu:0"):
-	    lrn = self.local_response_normalization_layer(x)
+        with tf.device("/cpu:0"):
+            lrn = self.local_response_normalization_layer(x)
 
-	    image = tf.slice(lrn, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
-	    tf.summary.image('lrn_input',
-		    # slice removes nir layer which is stored as alpha
-		    image,
-		    max_outputs=50)
+            image = tf.slice(lrn, [0, 0, 0, 0], [-1, self.image_size, self.image_size, 3])
+            tf.summary.image('lrn_input',
+                # slice removes nir layer which is stored as alpha
+                image,
+                max_outputs=50)
 
-        num_layers = 5
+            num_layers = 3
 
-        with tf.device("/gpu:0"):
-
-
-            lrn = tf.reshape(lrn, [self.batch_size, self.image_size, self.image_size, 4])
-
-            previous_layer = lrn
-            for layer in range(num_layers):
-                print("Generating Convolutional Layer %s" % layer)
-                with tf.variable_scope("encoder_%s" % layer):
-                    num_channels = 64 if layer != 0 else 4
-                    previous_layer = self.conv_layer(layer, num_channels, previous_layer)
+            with tf.device("/gpu:0"):
 
 
-            for layer in reversed(range(num_layers)):
-                with tf.variable_scope("decoder_%s" % layer):
-                    print("Generating Deconvolutional Layer %s" % layer)
-                    deconv = self.deconv_layer(layer, previous_layer)
-                    previous_layer = self.conv_decode_layer(layer, deconv)
+                lrn = tf.reshape(lrn, [self.batch_size, self.image_size, self.image_size, 4])
 
-            conv_class = self.conv_class_layer(previous_layer)
+                previous_layer = lrn
+                for layer in range(num_layers):
+                    print("Generating Convolutional Layer %s" % layer)
+                    with tf.variable_scope("encoder_%s" % layer):
+                        num_channels = 64 if layer != 0 else 4
+                        previous_layer = self.conv_layer(layer, num_channels, previous_layer)
 
-        return conv_class
+
+                for layer in reversed(range(num_layers)):
+                    with tf.variable_scope("decoder_%s" % layer):
+                        print("Generating Deconvolutional Layer %s" % layer)
+                        deconv = self.deconv_layer(layer, previous_layer)
+                        previous_layer = self.conv_decode_layer(layer, deconv)
+
+                conv_class = self.conv_class_layer(previous_layer)
+
+            return conv_class
 
     def loss(self, logits, labels):
         labels = tf.reshape(labels, [self.batch_size, self.image_size * self.image_size])
@@ -546,7 +537,7 @@ class ImageClassifier:
             with tf.device("/cpu:0"):
                 h_conv_features = tf.unstack(h_conv, axis=3)
                 h_conv_max = tf.reduce_max(h_conv)
-                h_conv_features_padded = map(lambda t: tf.pad(t-h_conv_max, [[0,0], [0,1], [0,0]]) + h_conv_max, h_conv_features)
+                h_conv_features_padded = list(map(lambda t: tf.pad(t-h_conv_max, [[0,0], [0,1], [0,0]]) + h_conv_max, h_conv_features))
                 h_conv_concated = tf.concat(h_conv_features_padded, 1)
                 h_conv_imgs = tf.expand_dims(h_conv_concated, -1)
 

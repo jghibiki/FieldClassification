@@ -15,28 +15,21 @@ tf.flags.DEFINE_boolean("confusion_matrix", False, "Toggles building a confusion
 FLAGS = tf.app.flags.FLAGS
 
 names = [
-    "Background",
-    "Open Water",
-    "Developed",
-    "Barren",
-    "Forest",
-    "Shrubland",
-    "Herbaceous",
-    "Planted/Cultivated",
-    "Wetlands"
+    "0",
+    "1"
 ]
 
 # generate lookup tables
 np.random.seed(1)
-color_lut =range(256, 0, -1) * 3
+color_lut = list(range(256, 0, -1)) * 3
 
-np.random.shuffle(color_lut)
 
 banded_lut = []
 
 for x in range(256):
  banded_lut.append(( color_lut[x], color_lut[256+x], color_lut[(256*2)+x] ))
 
+np.random.shuffle(banded_lut)
 
 font = ImageFont.load_default()
 txt = Image.new("RGB", (100,600), (255, 255, 255))
@@ -51,8 +44,8 @@ txt.save("classifications/legend.png")
 
 
 
-IMAGE_SIZE = 512
-NUM_CLASSES = 9
+IMAGE_SIZE = 320
+NUM_CLASSES = 2
 
 def main(argv=None):
 
