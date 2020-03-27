@@ -1,5 +1,18 @@
 # Field Classification Research
 
+## Related Papers and Presentations
+### Applying Convolutional Neural Networks to Per-pixel Orthoimagery Land Use Classification (2017)
+Presented at the Midwest Instruction and Computing Symposium (MICS) 2017
+
+- [Paper](https://github.com/jghibiki/mics2017/blob/master/mics_2017.pdf)
+- [Presentation](https://jghibiki.github.io/mics2017/#/)
+- Accolades: Placed 1st in the Undergraduate Research Paper Competition
+
+## Exploring the Usefulness of Adding Auxiliary Preprocessed Image Layers With Convolutional
+Presented at the Midwest Instruction and Computing Symposium (MICS) 2018
+
+- [Paper](https://github.com/jghibiki/mics2018/blob/master/mics_2018.pdf)
+- [Presentation](https://jghibiki.github.io/mics2018/)
 
 # 0. Requirements
 
